@@ -75,19 +75,19 @@ TFA_CLASSES = [
 ]
 
 # -----------------------------------------------------------------------------
-# 3. LƯU TRỮ SESSION STATE (CƠ SỞ DỮ LIỆU TẠM THỜI)
+# 3. LƯU TRỮ SESSION STATE (CƠ SỞ DỮ LIỆU SẠCH BAN ĐẦU)
 # -----------------------------------------------------------------------------
 if 'users' not in st.session_state:
     st.session_state.users = {
         # 1. Admin Tổng Hệ Thống
         "admin": {
             "password": "admin123",
-            "name": "Hệ Thống TFA EQ",
+            "name": "Ban Giám Hiệu Tổng (Toàn Hệ Thống)",
             "role": "super_admin",
             "campus_code": "ALL",
             "campus": "Tất cả cơ sở"
         },
-        # 2. BGH Từng Cơ Sở
+        # 2. Mặc định tài khoản BGH 5 Cơ sở
         "bghHD": {
             "password": "123456", "name": "BGH Cơ Sở Hà Đô", "role": "campus_admin",
             "campus_code": "HD", "campus": CAMPUS_MAP["HD"]
@@ -107,11 +107,6 @@ if 'users' not in st.session_state:
         "bghLVS": {
             "password": "123456", "name": "BGH Cơ Sở Lê Văn Sỹ", "role": "campus_admin",
             "campus_code": "LVS", "campus": CAMPUS_MAP["LVS"]
-        },
-        # 3. Tài khoản Giáo viên Mẫu
-        "0900000000HD": {
-            "password": "123456", "name": "Cô Thu Hương", "role": "teacher",
-            "campus_code": "HD", "campus": CAMPUS_MAP["HD"], "class_name": "Kindergarten 1"
         }
     }
 
@@ -119,9 +114,7 @@ if 'logged_user' not in st.session_state:
     st.session_state.logged_user = None
 
 if 'students_db' not in st.session_state:
-    st.session_state.students_db = {
-        "0900000000HD": ["Nguyễn Tony", "Trần Hamy", "Lê Laland", "Đào Minh Kiên"]
-    }
+    st.session_state.students_db = {}
 
 if 'evaluations_db' not in st.session_state:
     st.session_state.evaluations_db = []
@@ -140,7 +133,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 5. CỔNG ĐĂNG NHẬP (BẢO MẬT & TỐI GIẢN - CHỈ HIỆN FORM ĐĂNG NHẬP)
+# 5. CỔNG ĐĂNG NHẬP (BẢO MẬT & TỐI GIẢN CHỈ HIỆN Ô NHẬP)
 # -----------------------------------------------------------------------------
 if st.session_state.logged_user is None:
     st.subheader("🔐 ĐĂNG NHẬP HỆ THỐNG")
@@ -197,8 +190,8 @@ else:
         )
         
         if main_menu == "👑 1. Tạo & Quản lý Tài khoản (BGH & Giáo viên)":
-            st.subheader("👑 QUẢN LÝ TÀI KHOẢN TOÀN HỆ THỐNG")
-            tab_acc1, tab_acc2 = st.tabs(["➕ Tạo Tài Khoản Mới", "📋 Danh Sách Tài Khoản"])
+            st.subheader("👑 QUẢN LÝ VÀ TẠO TÀI KHOẢN HỆ THỐNG")
+            tab_acc1, tab_acc2 = st.tabs(["➕ Tạo Tài Khoản Mới", "📋 Danh Sách Tài Khoản Đã Tạo"])
             
             with tab_acc1:
                 acc_type = st.radio("Chọn loại tài khoản muốn tạo:", ["Giáo Viên (SĐT + Mã Cơ sở)", "BGH Cơ Sở"])
@@ -218,8 +211,8 @@ else:
                                 "campus_code": t_code, "campus": CAMPUS_MAP[t_code], "class_name": "Chưa tạo lớp"
                             }
                             st.session_state.students_db[gen_u] = []
-                            st.success(f"🎉 Đã tạo TK Giáo viên: `{gen_u}` | Pass: `{t_pass}`")
-                        else: st.error("Vui lòng điền đầy đủ thông tin!")
+                            st.success(f"🎉 Đã tạo thành công! Tên TK Giáo viên: `{gen_u}` | Mật khẩu: `{t_pass}`")
+                        else: st.error("Vui lòng điền đầy đủ SĐT và Họ tên!")
                             
                 else:
                     c1, c2 = st.columns(2)
@@ -233,15 +226,18 @@ else:
                             "password": bgh_p, "name": bgh_name, "role": "campus_admin",
                             "campus_code": bgh_code, "campus": CAMPUS_MAP[bgh_code]
                         }
-                        st.success(f"🎉 Đã tạo TK BGH Cơ sở: `{bgh_u}` | Pass: `{bgh_p}`")
+                        st.success(f"🎉 Đã tạo thành công! Tên TK BGH: `{bgh_u}` | Mật khẩu: `{bgh_p}`")
 
             with tab_acc2:
+                st.markdown("##### 📋 Danh sách tất cả tài khoản đã tạo (Dùng để gửi thông tin cho BGH/Giáo viên)")
                 acc_list = []
                 for k, v in st.session_state.users.items():
                     acc_list.append({
-                        "Tài khoản": k, "Họ tên / Đại diện": v.get("name"),
+                        "Tài khoản đăng nhập": k,
+                        "Mật khẩu": v.get("password"),
+                        "Họ tên / Đơn vị": v.get("name"),
                         "Vai trò": "Super Admin" if v.get("role")=="super_admin" else ("BGH Cơ sở" if v.get("role")=="campus_admin" else "Giáo viên"),
-                        "Cơ sở": v.get("campus"), "Mật khẩu": v.get("password")
+                        "Cơ sở": v.get("campus")
                     })
                 st.dataframe(pd.DataFrame(acc_list), use_container_width=True)
 
@@ -280,20 +276,21 @@ else:
         main_menu = st.sidebar.radio(
             f"DANH MỤC BGH ({my_code}):",
             [
-                f"🏫 1. Quản lý Giáo viên & Lớp ({my_code})",
+                f"🏫 1. Tạo Giáo viên & Xem Danh sách ({my_code})",
                 f"📊 2. Báo cáo EQ Cơ sở ({my_code})",
                 f"📝 3. Nhật ký Cảm xúc Cơ sở ({my_code})"
             ]
         )
         
-        if main_menu == f"🏫 1. Quản lý Giáo viên & Lớp ({my_code})":
-            st.subheader(f"🏫 BGH QUẢN LÝ CƠ SỞ: {my_campus.upper()}")
-            st.markdown("##### ➕ Tạo tài khoản Giáo viên mới cho Cơ sở mình")
+        if main_menu == f"🏫 1. Tạo Giáo viên & Xem Danh sách ({my_code})":
+            st.subheader(f"🏫 BGH QUẢN LÝ VÀ TẠO TÀI KHOẢN GIÁO VIÊN: {my_campus.upper()}")
+            
+            st.markdown("##### ➕ Tạo tài khoản Giáo viên mới")
             col1, col2 = st.columns(2)
             with col1: t_phone = st.text_input("Số điện thoại Giáo viên:").strip()
             with col2: t_name = st.text_input("Họ và tên Giáo viên:").strip()
             
-            if st.button("➕ Tạo Tài Khoản Giáo Viên Cơ Sở"):
+            if st.button("➕ Tạo Tài Khoản Giáo Viên"):
                 if t_phone and t_name:
                     gen_u = f"{t_phone}{my_code}"
                     st.session_state.users[gen_u] = {
@@ -301,20 +298,22 @@ else:
                         "campus_code": my_code, "campus": my_campus, "class_name": "Chưa tạo lớp"
                     }
                     st.session_state.students_db[gen_u] = []
-                    st.success(f"🎉 Tạo thành công TK Giáo viên: `{gen_u}` | Mật khẩu mặc định: `123456`")
+                    st.success(f"🎉 Tạo thành công! Tài khoản: `{gen_u}` | Mật khẩu mặc định: `123456`")
                 else: st.error("Vui lòng điền đủ SĐT và Họ tên!")
 
             st.markdown("---")
-            st.markdown(f"##### 📋 Danh sách Giáo viên thuộc {my_campus}")
+            st.markdown(f"##### 📋 Danh sách Tài khoản Giáo viên thuộc {my_campus} (Dùng để gửi thông tin cho các cô)")
             t_my_campus = []
             for k, v in st.session_state.users.items():
                 if v.get("role") == "teacher" and v.get("campus_code") == my_code:
                     t_my_campus.append({
-                        "Tài khoản (SĐT+Mã)": k, "Giáo viên": v.get("name"),
-                        "Lớp phụ trách": v.get("class_name", "Chưa tạo"), "Mật khẩu": v.get("password")
+                        "Tài khoản đăng nhập (SĐT+Mã)": k,
+                        "Mật khẩu": v.get("password"),
+                        "Họ tên Giáo viên": v.get("name"),
+                        "Lớp phụ trách": v.get("class_name", "Chưa tạo")
                     })
             if t_my_campus: st.dataframe(pd.DataFrame(t_my_campus), use_container_width=True)
-            else: st.info("Cơ sở chưa có giáo viên nào.")
+            else: st.info("Cơ sở chưa có tài khoản giáo viên nào được tạo.")
 
         elif main_menu == f"📊 2. Báo cáo EQ Cơ sở ({my_code})":
             st.subheader(f"📊 BÁO CÁO TỔNG HỢP EQ - {my_campus.upper()}")
