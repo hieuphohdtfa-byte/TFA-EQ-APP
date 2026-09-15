@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import os
 
 # -----------------------------------------------------------------------------
 # 1. CẤU HÌNH TRANG & GIAO DIỆN VÀNG - TRẮNG - XÁM (TFA BRAND)
@@ -24,9 +25,6 @@ st.markdown("""
             color: #1A1A1A;
             box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
             margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            gap: 20px;
         }
         .main-header h2 {
             color: #1A1A1A !important;
@@ -112,8 +110,8 @@ TFA_CLASSES = [
     "Pre-primary"
 ]
 
-# Logo URL chính thức của The FIRST Academy
-LOGO_URL = "https://theme.hstatic.net/200000305881/1000788365/14/logo.png"
+# Tên file logo nội bộ
+LOGO_FILE = "logo.png"
 
 # -----------------------------------------------------------------------------
 # 3. LƯU TRỮ SESSION STATE (CƠ SỞ DỮ LIỆU TẠM THỜI)
@@ -165,17 +163,21 @@ if 'daily_logs_db' not in st.session_state:
     st.session_state.daily_logs_db = []
 
 # -----------------------------------------------------------------------------
-# 4. HEADER THƯƠNG HIỆU CHÍNH (CÓ LOGO TFA)
+# 4. HEADER THƯƠNG HIỆU CHÍNH (CÓ LOGO TFA NỘI BỘ)
 # -----------------------------------------------------------------------------
-st.markdown(f"""
-    <div class="main-header">
-        <img src="{LOGO_URL}" alt="TFA Logo" style="height: 65px; border-radius: 8px; background: white; padding: 4px;">
-        <div>
+head_col1, head_col2 = st.columns([1, 5])
+with head_col1:
+    if os.path.exists(LOGO_FILE):
+        st.image(LOGO_FILE, width=120)
+    else:
+        st.write("☀️ **TFA**")
+with head_col2:
+    st.markdown("""
+        <div class="main-header">
             <h2>THE FIRST ACADEMY (TFA) - EMOTIONAL INTELLIGENCE SYSTEM</h2>
             <p>Hệ thống Đánh giá & Theo dõi Xu hướng Phát triển Cảm xúc (EQ) Mầm Non Chuẩn Hóa</p>
         </div>
-    </div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # 5. GIAO DIỆN BÌA NGOÀI / LANDING PAGE (CHƯA ĐĂNG NHẬP)
@@ -183,11 +185,10 @@ st.markdown(f"""
 if st.session_state.logged_user is None:
     col_left, col_right = st.columns([1.1, 1.9], gap="large")
     
-    # --- CỘT TRÁI: FORM ĐĂNG NHẬP (CÓ LOGO VÀ ĐÃ BỎ HƯỚNG DẪN) ---
+    # --- CỘT TRÁI: FORM ĐĂNG NHẬP ---
     with col_left:
-        st.markdown(f"""
+        st.markdown("""
             <div class="login-card">
-                <img src="{LOGO_URL}" alt="Logo TFA" style="height: 55px; margin-bottom: 10px;">
                 <h3 style="color: #1A1A1A; margin-top: 5px; font-weight: 700;">🔐 ĐĂNG NHẬP HỆ THỐNG</h3>
                 <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
                     Dành cho Ban Giám Hiệu & Giáo Viên TFA
@@ -195,6 +196,9 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
+        if os.path.exists(LOGO_FILE):
+            st.image(LOGO_FILE, use_container_width=True)
+            
         login_user = st.text_input("👤 Tên đăng nhập:", key="login_u", placeholder="Nhập tên đăng nhập...").strip()
         login_pass = st.text_input("🔑 Mật khẩu:", type="password", key="login_p", placeholder="Nhập mật khẩu...").strip()
         
@@ -266,8 +270,9 @@ else:
     user_key = st.session_state.logged_user
     role = user_info.get("role", "teacher")
     
-    # --- SIDEBAR THÔNG TIN (HIỆN LOGO) ---
-    st.sidebar.image(LOGO_URL, width=160)
+    # --- SIDEBAR THÔNG TIN ---
+    if os.path.exists(LOGO_FILE):
+        st.sidebar.image(LOGO_FILE, width=160)
     st.sidebar.markdown(f"### 👤 Người dùng: **{user_info['name']}**")
     
     if role == "super_admin":
@@ -284,7 +289,7 @@ else:
     st.sidebar.markdown("---")
     
     # =========================================================================
-    # VAI TRÒ 1: ADMIN TỔNG (SUPER ADMIN) - CHỈ TẠO & QUẢN LÝ TÀI KHOẢN BGH CƠ SỞ
+    # VAI TRÒ 1: ADMIN TỔNG (SUPER ADMIN)
     # =========================================================================
     if role == "super_admin":
         main_menu = st.sidebar.radio(
@@ -390,7 +395,7 @@ else:
             else: st.info("Chưa có dữ liệu nhật ký hằng ngày.")
 
     # =========================================================================
-    # VAI TRÒ 2: BGH TỪNG CƠ SỞ (CAMPUS ADMIN) - CHUYÊN TẠO & QUẢN LÝ GIÁO VIÊN
+    # VAI TRÒ 2: BGH TỪNG CƠ SỞ (CAMPUS ADMIN)
     # =========================================================================
     elif role == "campus_admin":
         my_campus = user_info['campus']
