@@ -420,7 +420,7 @@ else:
                 with c1: 
                     BGH_code = st.selectbox("Chọn Cơ sở quản lý:", list(CAMPUS_MAP.keys()), format_func=lambda x: f"{x} - {CAMPUS_MAP[x]}", key="BGH_c")
                 with c2: 
-                    BGH_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[bgh_code]}").strip()
+                    BGH_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[BGH_code]}").strip()
                 
                 BGH_u = st.text_input("Tên đăng nhập BGH (Ví dụ: BGHHD, BGHHL...):", value=f"BGH{BGH_code}").strip()
                 BGH_p = st.text_input("Mật khẩu BGH:", value="123456")
