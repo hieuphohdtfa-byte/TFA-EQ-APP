@@ -131,23 +131,23 @@ if 'users' not in st.session_state:
             "campus": "Tất cả cơ sở",
             "status": "active"
         },
-        "bghHD": {
+        "BGHHD": {
             "password": "123456", "name": "BGH Cơ Sở Hà Đô", "role": "campus_admin",
             "campus_code": "HD", "campus": CAMPUS_MAP["HD"], "status": "active"
         },
-        "bghTTL": {
+        "BGHTTL": {
             "password": "123456", "name": "BGH Cơ Sở Trần Thị Lý", "role": "campus_admin",
             "campus_code": "TTL", "campus": CAMPUS_MAP["TTL"], "status": "active"
         },
-        "bghDBM": {
+        "BGHDBM": {
             "password": "123456", "name": "BGH Cơ Sở Dương Bạch Mai", "role": "campus_admin",
             "campus_code": "DBM", "campus": CAMPUS_MAP["DBM"], "status": "active"
         },
-        "bghHL": {
+        "BGHHL": {
             "password": "123456", "name": "BGH Cơ Sở Him Lam", "role": "campus_admin",
             "campus_code": "HL", "campus": CAMPUS_MAP["HL"], "status": "active"
         },
-        "bghLVS": {
+        "BGHLVS": {
             "password": "123456", "name": "BGH Cơ Sở Lê Văn Sỹ", "role": "campus_admin",
             "campus_code": "LVS", "campus": CAMPUS_MAP["LVS"], "status": "active"
         }
@@ -418,22 +418,22 @@ else:
                 st.markdown("##### ➕ Tạo Tài khoản Ban Giám Hiệu Cơ sở mới")
                 c1, c2 = st.columns(2)
                 with c1: 
-                    bgh_code = st.selectbox("Chọn Cơ sở quản lý:", list(CAMPUS_MAP.keys()), format_func=lambda x: f"{x} - {CAMPUS_MAP[x]}", key="bgh_c")
+                    BGH_code = st.selectbox("Chọn Cơ sở quản lý:", list(CAMPUS_MAP.keys()), format_func=lambda x: f"{x} - {CAMPUS_MAP[x]}", key="BGH_c")
                 with c2: 
-                    bgh_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[bgh_code]}").strip()
+                    BGH_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[bgh_code]}").strip()
                 
-                bgh_u = st.text_input("Tên đăng nhập BGH (Ví dụ: bghHD, bghLVS...):", value=f"bgh{bgh_code}").strip()
-                bgh_p = st.text_input("Mật khẩu BGH:", value="123456")
+                BGH_u = st.text_input("Tên đăng nhập BGH (Ví dụ: BGHHD, BGHHL...):", value=f"BGH{BGH_code}").strip()
+                BGH_p = st.text_input("Mật khẩu BGH:", value="123456")
                 
                 if st.button("➕ Tạo Tài Khoản BGH Cơ Sở"):
                     if bgh_u in st.session_state.users:
-                        st.warning(f"⚠️ Tên đăng nhập `{bgh_u}` đã tồn tại!")
+                        st.warning(f"⚠️ Tên đăng nhập `{BGH_u}` đã tồn tại!")
                     else:
-                        st.session_state.users[bgh_u] = {
-                            "password": bgh_p, "name": bgh_name, "role": "campus_admin",
-                            "campus_code": bgh_code, "campus": CAMPUS_MAP[bgh_code], "status": "active"
+                        st.session_state.users[BGH_u] = {
+                            "password": BGH_p, "name": BGH_name, "role": "campus_admin",
+                            "campus_code": BGH_code, "campus": CAMPUS_MAP[BGH_code], "status": "active"
                         }
-                        st.success(f"🎉 Đã tạo thành công! Tên TK BGH: `{bgh_u}` | Mật khẩu: `{bgh_p}`")
+                        st.success(f"🎉 Đã tạo thành công! Tên TK BGH: `{BGH_u}` | Mật khẩu: `{BGH_p}`")
 
             with tab_acc2:
                 st.markdown("##### 📋 Quản lý trạng thái & Xóa tài khoản hệ thống")
