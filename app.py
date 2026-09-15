@@ -82,7 +82,7 @@ if 'users' not in st.session_state:
         # 1. Admin Tổng Hệ Thống
         "admin": {
             "password": "admin123",
-            "name": "Ban Giám Hiệu Tổng (Toàn Hệ Thống)",
+            "name": "Hệ Thống TFA EQ",
             "role": "super_admin",
             "campus_code": "ALL",
             "campus": "Tất cả cơ sở"
@@ -140,30 +140,24 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 5. CỔNG ĐĂNG NHẬP
+# 5. CỔNG ĐĂNG NHẬP (BẢO MẬT & TỐI GIẢN - CHỈ HIỆN FORM ĐĂNG NHẬP)
 # -----------------------------------------------------------------------------
 if st.session_state.logged_user is None:
-    st.subheader("🔐 CỔNG ĐĂNG NHẬP HỆ THỐNG")
+    st.subheader("🔐 ĐĂNG NHẬP HỆ THỐNG")
     
-    st.info("""
-    💡 **CÁC CẤP TÀI KHOẢN ĐĂNG NHẬP:**
-    - 👑 **BGH Hệ Thống (Super Admin):** `admin` / `admin123` (Xem & Quản lý toàn bộ 5 cơ sở).
-    - 🏫 **BGH Từng Cơ Sở:** Mật khẩu mặc định `123456`
-      - Hà Đô: `bghHD` | Trần Thị Lý: `bghTTL` | Dương Bạch Mai: `bghDBM` | Him Lam: `bghHL` | Lê Văn Sỹ: `bghLVS`
-    - 👩‍🏫 **Giáo Viên Từng Lớp:** Tên tài khoản `SĐT + Mã Cơ sở` (VD: `0900000000HD` | Pass: `123456`).
-    """)
-    
-    login_user = st.text_input("Tên đăng nhập:", key="login_u").strip()
-    login_pass = st.text_input("Mật khẩu:", type="password", key="login_p").strip()
-    
-    if st.button("Đăng Nhập"):
-        if login_user in st.session_state.users and st.session_state.users[login_user]["password"] == login_pass:
-            st.session_state.logged_user = login_user
-            u_info = st.session_state.users[login_user]
-            st.success(f"🎉 Đăng nhập thành công! Chào mừng {u_info['name']}")
-            st.rerun()
-        else:
-            st.error("❌ Tên đăng nhập hoặc mật khẩu không chính xác! Vui lòng kiểm tra lại.")
+    col_login, _ = st.columns([1, 1])
+    with col_login:
+        login_user = st.text_input("Tên đăng nhập:", key="login_u").strip()
+        login_pass = st.text_input("Mật khẩu:", type="password", key="login_p").strip()
+        
+        if st.button("Đăng Nhập"):
+            if login_user in st.session_state.users and st.session_state.users[login_user]["password"] == login_pass:
+                st.session_state.logged_user = login_user
+                u_info = st.session_state.users[login_user]
+                st.success(f"🎉 Đăng nhập thành công! Chào mừng {u_info['name']}")
+                st.rerun()
+            else:
+                st.error("❌ Tên đăng nhập hoặc mật khẩu không chính xác! Vui lòng kiểm tra lại.")
 
 # -----------------------------------------------------------------------------
 # 6. KHÔNG GIAN LÀM VIỆC THEO VAI TRÒ
