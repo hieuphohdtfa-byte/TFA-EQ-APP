@@ -5,52 +5,87 @@ import pandas as pd
 # 1. CẤU HÌNH TRANG & GIAO DIỆN VÀNG - TRẮNG - XÁM
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="TFA - Xu Hướng Phát Triển Cảm Xúc Cho Trẻ",
+    page_title="The FIRST Academy - Hệ Thống Quản Lý Cảm Xúc EQ",
     layout="wide",
     page_icon="☀️"
 )
 
-# Custom CSS giao diện Vàng - Trắng - Xám
+# Custom CSS giao diện thương hiệu TFA (Vàng - Trắng - Xám)
 st.markdown("""
     <style>
         .stApp {
             background-color: #FFFDF5;
         }
+        /* Header chính màu vàng tươi TFA */
         .main-header {
             background: linear-gradient(135deg, #FFC107 0%, #FF9800 100%);
-            padding: 18px 25px;
+            padding: 20px 30px;
             border-radius: 12px;
             color: #1A1A1A;
-            box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
             margin-bottom: 25px;
         }
         .main-header h2 {
             color: #1A1A1A !important;
-            font-weight: 700;
+            font-weight: 800;
             margin: 0;
+            font-size: 26px;
         }
         .main-header p {
-            color: #333333;
-            margin: 5px 0 0 0;
-            font-size: 14px;
+            color: #2D2D2D;
+            margin: 6px 0 0 0;
+            font-size: 15px;
+            font-weight: 500;
         }
+        /* Card Đăng nhập */
+        .login-card {
+            background-color: #FFFFFF;
+            padding: 30px 25px;
+            border-radius: 16px;
+            border: 2px solid #FFE082;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            margin-bottom: 20px;
+        }
+        /* Nút bấm primary màu vàng */
         .stButton>button {
             background-color: #FFC107;
             color: #1A1A1A;
-            font-weight: 600;
+            font-weight: 700;
             border: none;
-            border-radius: 8px;
-            padding: 8px 20px;
-            transition: all 0.3s;
+            border-radius: 10px;
+            padding: 10px 24px;
+            width: 100%;
+            transition: all 0.3s ease;
         }
         .stButton>button:hover {
             background-color: #FFB300;
             color: #000000;
-            box-shadow: 0 2px 8px rgba(255, 179, 0, 0.4);
+            box-shadow: 0 4px 12px rgba(255, 179, 0, 0.4);
+            transform: translateY(-2px);
         }
+        /* Sidebar styling */
         section[data-testid="stSidebar"] {
             background-color: #FFF9E6;
             border-right: 1px solid #FFE082;
+        }
+        /* Card giới thiệu bên phải */
+        .info-card {
+            background-color: #FFFFFF;
+            padding: 25px;
+            border-radius: 16px;
+            border: 1px solid #FFE58F;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            margin-bottom: 20px;
+        }
+        .campus-badge {
+            background-color: #FFF3C4;
+            color: #8C6200;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 13px;
+            display: inline-block;
+            margin: 4px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -75,7 +110,7 @@ TFA_CLASSES = [
 ]
 
 # -----------------------------------------------------------------------------
-# 3. LƯU TRỮ SESSION STATE (CƠ SỞ DỮ LIỆU SẠCH BAN ĐẦU)
+# 3. LƯU TRỮ SESSION STATE (CƠ SỞ DỮ LIỆU TẠM THỜI)
 # -----------------------------------------------------------------------------
 if 'users' not in st.session_state:
     st.session_state.users = {
@@ -85,28 +120,29 @@ if 'users' not in st.session_state:
             "name": "Ban Giám Hiệu Tổng (Toàn Hệ Thống)",
             "role": "super_admin",
             "campus_code": "ALL",
-            "campus": "Tất cả cơ sở"
+            "campus": "Tất cả cơ sở",
+            "status": "active"
         },
         # 2. Mặc định tài khoản BGH 5 Cơ sở
-        "bghHD": {
+        "BGHHD": {
             "password": "123456", "name": "BGH Cơ Sở Hà Đô", "role": "campus_admin",
-            "campus_code": "HD", "campus": CAMPUS_MAP["HD"]
+            "campus_code": "HD", "campus": CAMPUS_MAP["HD"], "status": "active"
         },
-        "bghTTL": {
+        "BGHTTL": {
             "password": "123456", "name": "BGH Cơ Sở Trần Thị Lý", "role": "campus_admin",
-            "campus_code": "TTL", "campus": CAMPUS_MAP["TTL"]
+            "campus_code": "TTL", "campus": CAMPUS_MAP["TTL"], "status": "active"
         },
-        "bghDBM": {
+        "BGHDBM": {
             "password": "123456", "name": "BGH Cơ Sở Dương Bạch Mai", "role": "campus_admin",
-            "campus_code": "DBM", "campus": CAMPUS_MAP["DBM"]
+            "campus_code": "DBM", "campus": CAMPUS_MAP["DBM"], "status": "active"
         },
-        "bghHL": {
+        "BGHHL": {
             "password": "123456", "name": "BGH Cơ Sở Him Lam", "role": "campus_admin",
-            "campus_code": "HL", "campus": CAMPUS_MAP["HL"]
+            "campus_code": "HL", "campus": CAMPUS_MAP["HL"], "status": "active"
         },
-        "bghLVS": {
+        "BGHLVS": {
             "password": "123456", "name": "BGH Cơ Sở Lê Văn Sỹ", "role": "campus_admin",
-            "campus_code": "LVS", "campus": CAMPUS_MAP["LVS"]
+            "campus_code": "LVS", "campus": CAMPUS_MAP["LVS"], "status": "active"
         }
     }
 
@@ -123,37 +159,107 @@ if 'daily_logs_db' not in st.session_state:
     st.session_state.daily_logs_db = []
 
 # -----------------------------------------------------------------------------
-# 4. HEADER THƯƠNG HIỆU
+# 4. HEADER THƯƠNG HIỆU CHÍNH
 # -----------------------------------------------------------------------------
 st.markdown("""
     <div class="main-header">
-        <h2>☀️ HỆ THỐNG QUẢN LÝ EQ - THE FIRST ACADEMY (TFA)</h2>
-        <p>Ứng dụng Theo dõi & Đánh giá Xu hướng Phát triển Cảm xúc Cho Trẻ Mầm Non</p>
+        <h2>☀️ THE FIRST ACADEMY (TFA) - EMOTIONAL INTELLIGENCE SYSTEM</h2>
+        <p>Hệ thống Đánh giá & Theo dõi Xu hướng Phát triển Cảm xúc (EQ) Mầm Non Chuẩn Hóa</p>
     </div>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 5. CỔNG ĐĂNG NHẬP (BẢO MẬT & TỐI GIẢN CHỈ HIỆN Ô NHẬP)
+# 5. GIAO DIỆN BÌA NGOÀI / LANDING PAGE (CHƯA ĐĂNG NHẬP)
 # -----------------------------------------------------------------------------
 if st.session_state.logged_user is None:
-    st.subheader("🔐 ĐĂNG NHẬP HỆ THỐNG")
+    # Chia trang làm 2 cột: Cột trái (Đăng nhập) & Cột phải (Giới thiệu Trường & Hệ thống)
+    col_left, col_right = st.columns([1.1, 1.9], gap="large")
     
-    col_login, _ = st.columns([1, 1])
-    with col_login:
-        login_user = st.text_input("Tên đăng nhập:", key="login_u").strip()
-        login_pass = st.text_input("Mật khẩu:", type="password", key="login_p").strip()
+    # --- CỘT TRÁI: FORM ĐĂNG NHẬP ---
+    with col_left:
+        st.markdown("""
+            <div class="login-card">
+                <h3 style="color: #1A1A1A; margin-top: 0; text-align: center; font-weight: 700;">🔐 ĐĂNG NHẬP HỆ THỐNG</h3>
+                <p style="color: #666; font-size: 13px; text-align: center; margin-bottom: 20px;">
+                    Dành cho Ban Giám Hiệu & Giáo Viên TFA
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
         
-        if st.button("Đăng Nhập"):
-            if login_user in st.session_state.users and st.session_state.users[login_user]["password"] == login_pass:
-                st.session_state.logged_user = login_user
+        login_user = st.text_input("👤 Tên đăng nhập:", key="login_u", placeholder="Nhập tên đăng nhập...").strip()
+        login_pass = st.text_input("🔑 Mật khẩu:", type="password", key="login_p", placeholder="Nhập mật khẩu...").strip()
+        
+        st.write("")
+        if st.button("🚀 CỔNG ĐĂNG NHẬP"):
+            if login_user in st.session_state.users:
                 u_info = st.session_state.users[login_user]
-                st.success(f"🎉 Đăng nhập thành công! Chào mừng {u_info['name']}")
-                st.rerun()
+                if u_info["password"] == login_pass:
+                    if u_info.get("status", "active") == "inactive":
+                        st.error("❌ Tài khoản này đã bị NGƯNG HIỆU LỰC hoạt động! Vui lòng liên hệ BGH.")
+                    else:
+                        st.session_state.logged_user = login_user
+                        st.success(f"🎉 Đăng nhập thành công! Chào mừng {u_info['name']}")
+                        st.rerun()
+                else:
+                    st.error("❌ Mật khẩu không chính xác! Vui lòng kiểm tra lại.")
             else:
-                st.error("❌ Tên đăng nhập hoặc mật khẩu không chính xác! Vui lòng kiểm tra lại.")
+                st.error("❌ Tên đăng nhập không tồn tại trên hệ thống!")
+
+        st.markdown("""
+            <div style="margin-top: 25px; padding: 15px; background-color: #FFF9E6; border-radius: 10px; font-size: 12px; color: #666; border: 1px dashed #FFD54F;">
+                📌 <b>Hướng dẫn đăng nhập:</b><br>
+                - <b>Giáo viên:</b> Đăng nhập bằng tài khoản SĐT + Mã Cơ sở do BGH cấp.<br>
+                - <b>BGH Cơ sở:</b> Đăng nhập bằng mã quản lý cơ sở.<br>
+                - Quên mật khẩu hoặc cần hỗ trợ: Liên hệ Ban Giám Hiệu.
+            </div>
+        """, unsafe_allow_html=True)
+
+    # --- CỘT PHẢI: GIỚI THIỆU THE FIRST ACADEMY ---
+    with col_right:
+        st.markdown("""
+            <div class="info-card">
+                <h3 style="color: #000; margin-top:0;">🏫 HỆ THỐNG TRƯỜNG MẦM NON SONG NGỮ THE FIRST ACADEMY</h3>
+                <p style="color: #444; line-height: 1.6; font-size: 14.5px;">
+                    <b>The FIRST Academy (TFA)</b> là môi trường giáo dục mầm non song ngữ hiện đại, nơi mỗi đứa trẻ được chăm sóc và phát triển toàn diện cả về <b>Trí tuệ (IQ)</b> lẫn <b>Cảm xúc (EQ)</b>. 
+                    Ứng dụng được thiết kế nhằm theo dõi nhật ký cảm xúc hằng ngày và phân tích xu hướng phát triển EQ của trẻ theo bộ tiêu chí chuẩn hóa.
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("#### 📍 Mạng lưới 5 Cơ sở Toàn hệ thống")
+        st.markdown("""
+            <div>
+                <span class="campus-badge">🏢 TFA Hà Đô (Cát Lái, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Quận 3, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Quận 8, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Him Lam (Quận 7, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Trần Thị Lý (Đà Nẵng)</span>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.write("")
+        st.markdown("#### 🎨 Các Khối Lớp Đào Tạo Chuẩn")
+        col_k1, col_k2, col_k3 = st.columns(3)
+        with col_k1:
+            st.info("👶 **Toddler 1 & 2**\n\n*(Nhóm trẻ từ 12–36 tháng)*")
+        with col_k2:
+            st.warning("🌱 **Pre-school & Kindergarten**\n\n*(Khối Lớp Mầm & Chồi 3–5 tuổi)*")
+        with col_k3:
+            st.success("🎓 **Pre-primary**\n\n*(Khối Lớp Lá 5–6 tuổi chuẩn bị vào Lớp 1)*")
+
+        st.markdown("""
+            <div style="background-color: #FFFDF5; padding: 15px; border-radius: 12px; border: 1px solid #FFE082; margin-top: 15px;">
+                <b>🎯 Mục tiêu chương trình EQ tại TFA:</b>
+                <ul style="margin-bottom: 0; color: #444; font-size: 13.5px;">
+                    <li>Nhận biết và gọi tên chính xác các trạng thái cảm xúc.</li>
+                    <li>Rèn luyện khả năng tự điều chỉnh và kiểm soát hành vi tích cực.</li>
+                    <li>Nuôi dưỡng sự đồng cảm, giao tiếp xã hội và giải quyết xung đột lành mạnh.</li>
+                </ul>
+            </div>
+        """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 6. KHÔNG GIAN LÀM VIỆC THEO VAI TRÒ
+# 6. KHÔNG GIAN LÀM VIỆC TRONG APP (SAU KHI ĐĂNG NHẬP)
 # -----------------------------------------------------------------------------
 else:
     user_info = st.session_state.users[st.session_state.logged_user]
@@ -190,8 +296,8 @@ else:
         )
         
         if main_menu == "👑 1. Tạo & Quản lý Tài khoản (BGH & Giáo viên)":
-            st.subheader("👑 QUẢN LÝ VÀ TẠO TÀI KHOẢN HỆ THỐNG")
-            tab_acc1, tab_acc2 = st.tabs(["➕ Tạo Tài Khoản Mới", "📋 Danh Sách Tài Khoản Đã Tạo"])
+            st.subheader("👑 QUẢN LÝ & THAO TÁC TÀI KHOẢN HỆ THỐNG")
+            tab_acc1, tab_acc2 = st.tabs(["➕ Tạo Tài Khoản Mới", "📋 Danh Sách & Thao Tác Tài Khoản (Khóa / Xóa)"])
             
             with tab_acc1:
                 acc_type = st.radio("Chọn loại tài khoản muốn tạo:", ["Giáo Viên (SĐT + Mã Cơ sở)", "BGH Cơ Sở"])
@@ -208,7 +314,8 @@ else:
                             gen_u = f"{t_phone}{t_code}"
                             st.session_state.users[gen_u] = {
                                 "password": t_pass, "name": t_name, "role": "teacher",
-                                "campus_code": t_code, "campus": CAMPUS_MAP[t_code], "class_name": "Chưa tạo lớp"
+                                "campus_code": t_code, "campus": CAMPUS_MAP[t_code], 
+                                "class_name": "Chưa tạo lớp", "status": "active"
                             }
                             st.session_state.students_db[gen_u] = []
                             st.success(f"🎉 Đã tạo thành công! Tên TK Giáo viên: `{gen_u}` | Mật khẩu: `{t_pass}`")
@@ -224,22 +331,50 @@ else:
                     if st.button("➕ Tạo Tài Khoản BGH Cơ Sở"):
                         st.session_state.users[bgh_u] = {
                             "password": bgh_p, "name": bgh_name, "role": "campus_admin",
-                            "campus_code": bgh_code, "campus": CAMPUS_MAP[bgh_code]
+                            "campus_code": bgh_code, "campus": CAMPUS_MAP[bgh_code], "status": "active"
                         }
                         st.success(f"🎉 Đã tạo thành công! Tên TK BGH: `{bgh_u}` | Mật khẩu: `{bgh_p}`")
 
             with tab_acc2:
-                st.markdown("##### 📋 Danh sách tất cả tài khoản đã tạo (Dùng để gửi thông tin cho BGH/Giáo viên)")
-                acc_list = []
-                for k, v in st.session_state.users.items():
-                    acc_list.append({
-                        "Tài khoản đăng nhập": k,
-                        "Mật khẩu": v.get("password"),
-                        "Họ tên / Đơn vị": v.get("name"),
-                        "Vai trò": "Super Admin" if v.get("role")=="super_admin" else ("BGH Cơ sở" if v.get("role")=="campus_admin" else "Giáo viên"),
-                        "Cơ sở": v.get("campus")
-                    })
-                st.dataframe(pd.DataFrame(acc_list), use_container_width=True)
+                st.markdown("##### 📋 Quản lý trạng thái & Xóa tài khoản")
+                st.info("💡 **Ghi chú:**\n- **Khóa:** Tài khoản sẽ bị ngưng hiệu lực, giáo viên không thể đăng nhập.\n- **Xóa:** Xóa vĩnh viễn tài khoản khỏi hệ thống.")
+                
+                for u_id, u_data in list(st.session_state.users.items()):
+                    if u_id == "admin":
+                        continue
+                    
+                    col_u1, col_u2, col_u3, col_u4, col_u5 = st.columns([1.5, 1.5, 2, 1.2, 1.8])
+                    status_text = "🟢 Hoạt động" if u_data.get("status", "active") == "active" else "🔴 Đã khóa"
+                    
+                    with col_u1:
+                        st.write(f"**TK:** `{u_id}`")
+                    with col_u2:
+                        st.write(f"**Tên:** {u_data.get('name')}")
+                    with col_u3:
+                        st.write(f"**Cơ sở:** {u_data.get('campus_code', 'ALL')}")
+                    with col_u4:
+                        st.write(f"**Trạng thái:** {status_text}")
+                    with col_u5:
+                        btn_c1, btn_c2 = st.columns(2)
+                        with btn_c1:
+                            if u_data.get("status", "active") == "active":
+                                if st.button("🔒 Khóa", key=f"lock_{u_id}"):
+                                    st.session_state.users[u_id]["status"] = "inactive"
+                                    st.success(f"Đã khóa TK `{u_id}`")
+                                    st.rerun()
+                            else:
+                                if st.button("🔓 Mở", key=f"unlock_{u_id}"):
+                                    st.session_state.users[u_id]["status"] = "active"
+                                    st.success(f"Đã mở khóa TK `{u_id}`")
+                                    st.rerun()
+                        with btn_c2:
+                            if st.button("🗑️ Xóa", key=f"del_{u_id}"):
+                                del st.session_state.users[u_id]
+                                if u_id in st.session_state.students_db:
+                                    del st.session_state.students_db[u_id]
+                                st.warning(f"Đã xóa tài khoản `{u_id}`")
+                                st.rerun()
+                    st.markdown("---")
 
         elif main_menu == "📊 2. Báo cáo EQ Toàn Hệ Thống":
             st.subheader("📊 BÁO CÁO TỔNG HỢP EQ TOÀN HỆ THỐNG (5 CƠ SỞ)")
@@ -276,13 +411,13 @@ else:
         main_menu = st.sidebar.radio(
             f"DANH MỤC BGH ({my_code}):",
             [
-                f"🏫 1. Tạo Giáo viên & Xem Danh sách ({my_code})",
+                f"🏫 1. Tạo Giáo viên & Quản lý (Khóa / Xóa)",
                 f"📊 2. Báo cáo EQ Cơ sở ({my_code})",
                 f"📝 3. Nhật ký Cảm xúc Cơ sở ({my_code})"
             ]
         )
         
-        if main_menu == f"🏫 1. Tạo Giáo viên & Xem Danh sách ({my_code})":
+        if main_menu == f"🏫 1. Tạo Giáo viên & Quản lý (Khóa / Xóa)":
             st.subheader(f"🏫 BGH QUẢN LÝ VÀ TẠO TÀI KHOẢN GIÁO VIÊN: {my_campus.upper()}")
             
             st.markdown("##### ➕ Tạo tài khoản Giáo viên mới")
@@ -295,25 +430,53 @@ else:
                     gen_u = f"{t_phone}{my_code}"
                     st.session_state.users[gen_u] = {
                         "password": "123456", "name": t_name, "role": "teacher",
-                        "campus_code": my_code, "campus": my_campus, "class_name": "Chưa tạo lớp"
+                        "campus_code": my_code, "campus": my_campus, 
+                        "class_name": "Chưa tạo lớp", "status": "active"
                     }
                     st.session_state.students_db[gen_u] = []
                     st.success(f"🎉 Tạo thành công! Tài khoản: `{gen_u}` | Mật khẩu mặc định: `123456`")
                 else: st.error("Vui lòng điền đủ SĐT và Họ tên!")
 
             st.markdown("---")
-            st.markdown(f"##### 📋 Danh sách Tài khoản Giáo viên thuộc {my_campus} (Dùng để gửi thông tin cho các cô)")
-            t_my_campus = []
-            for k, v in st.session_state.users.items():
-                if v.get("role") == "teacher" and v.get("campus_code") == my_code:
-                    t_my_campus.append({
-                        "Tài khoản đăng nhập (SĐT+Mã)": k,
-                        "Mật khẩu": v.get("password"),
-                        "Họ tên Giáo viên": v.get("name"),
-                        "Lớp phụ trách": v.get("class_name", "Chưa tạo")
-                    })
-            if t_my_campus: st.dataframe(pd.DataFrame(t_my_campus), use_container_width=True)
-            else: st.info("Cơ sở chưa có tài khoản giáo viên nào được tạo.")
+            st.markdown(f"##### 📋 Danh sách & Quản lý Giáo viên thuộc {my_campus}")
+            
+            has_teacher = False
+            for u_id, u_data in list(st.session_state.users.items()):
+                if u_data.get("role") == "teacher" and u_data.get("campus_code") == my_code:
+                    has_teacher = True
+                    col_u1, col_u2, col_u3, col_u4 = st.columns([1.5, 1.5, 1.5, 1.5])
+                    status_text = "🟢 Hoạt động" if u_data.get("status", "active") == "active" else "🔴 Đã khóa"
+                    
+                    with col_u1:
+                        st.write(f"**TK:** `{u_id}` | Pass: `{u_data.get('password')}`")
+                    with col_u2:
+                        st.write(f"**GV:** {u_data.get('name')}")
+                    with col_u3:
+                        st.write(f"**Lớp:** {u_data.get('class_name', 'Chưa tạo')}")
+                    with col_u4:
+                        btn_c1, btn_c2 = st.columns(2)
+                        with btn_c1:
+                            if u_data.get("status", "active") == "active":
+                                if st.button("🔒 Khóa", key=f"lock_c_{u_id}"):
+                                    st.session_state.users[u_id]["status"] = "inactive"
+                                    st.success(f"Đã khóa TK `{u_id}`")
+                                    st.rerun()
+                            else:
+                                if st.button("🔓 Mở", key=f"unlock_c_{u_id}"):
+                                    st.session_state.users[u_id]["status"] = "active"
+                                    st.success(f"Đã mở khóa TK `{u_id}`")
+                                    st.rerun()
+                        with btn_c2:
+                            if st.button("🗑️ Xóa", key=f"del_c_{u_id}"):
+                                del st.session_state.users[u_id]
+                                if u_id in st.session_state.students_db:
+                                    del st.session_state.students_db[u_id]
+                                st.warning(f"Đã xóa tài khoản `{u_id}`")
+                                st.rerun()
+                    st.markdown("---")
+                    
+            if not has_teacher:
+                st.info("Cơ sở chưa có tài khoản giáo viên nào được tạo.")
 
         elif main_menu == f"📊 2. Báo cáo EQ Cơ sở ({my_code})":
             st.subheader(f"📊 BÁO CÁO TỔNG HỢP EQ - {my_campus.upper()}")
