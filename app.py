@@ -315,7 +315,7 @@ else:
                 with c2: 
                     bgh_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[bgh_code]}").strip()
                 
-                bgh_u = st.text_input("Tên đăng nhập BGH (Ví dụ: bghHD, bghLVS...):", value=f"bgh{bgh_code}").strip()
+                bgh_u = st.text_input("Tên đăng nhập BGH (Ví dụ: BGHHD, BGHLVS...):", value=f"bgh{bgh_code}").strip()
                 bgh_p = st.text_input("Mật khẩu BGH:", value="123456")
                 
                 if st.button("➕ Tạo Tài Khoản BGH Cơ Sở"):
@@ -323,10 +323,10 @@ else:
                         st.warning(f"⚠️ Tên đăng nhập `{bgh_u}` đã tồn tại!")
                     else:
                         st.session_state.users[bgh_u] = {
-                            "password": bgh_p, "name": bgh_name, "role": "campus_admin",
-                            "campus_code": bgh_code, "campus": CAMPUS_MAP[bgh_code], "status": "active"
+                            "password": BGH_p, "name": BGH_name, "role": "campus_admin",
+                            "campus_code": BGH_code, "campus": CAMPUS_MAP[bgh_code], "status": "active"
                         }
-                        st.success(f"🎉 Đã tạo thành công! Tên TK BGH: `{bgh_u}` | Mật khẩu: `{bgh_p}`")
+                        st.success(f"🎉 Đã tạo thành công! Tên TK BGH: `{BGH_u}` | Mật khẩu: `{BGH_p}`")
 
             with tab_acc2:
                 st.markdown("##### 📋 Quản lý trạng thái & Xóa tài khoản hệ thống")
