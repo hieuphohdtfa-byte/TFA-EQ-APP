@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import os
+from datetime import datetime
+import plotly.express as px
+import plotly.graph_objects as go
 
 # -----------------------------------------------------------------------------
 # 1. CẤU HÌNH TRANG & GIAO DIỆN VÀNG - TRẮNG - XÁM (TFA BRAND)
@@ -115,6 +118,8 @@ TFA_ROUTINES = [
     "Tình huống phát sinh"
 ]
 
+MONTH_OPTIONS = ["Tất cả các tháng"] + [f"Tháng {m}" for m in range(1, 13)]
+
 LOGO_FILE = "logo.png" if os.path.exists("logo.png") else ("Logo TFA Ver2.1 .png" if os.path.exists("Logo TFA Ver2.1 .png") else "logo.png")
 
 # -----------------------------------------------------------------------------
@@ -168,7 +173,168 @@ if 'comparisons_db' not in st.session_state:
     st.session_state.comparisons_db = []
 
 # -----------------------------------------------------------------------------
-# 4. HEADER THƯƠNG HIỆU CHÍNH
+# 4. HÀM HỖ TRỢ LỌC DỮ LIỆU THEO THÁNG
+# -----------------------------------------------------------------------------
+def filter_logs_by_month(logs, selected_month):
+    if not logs or selected_month == "Tất cả các tháng":
+        return logs
+    try:
+        month_num = int(selected_month.replace("Tháng ", ""))
+        filtered = []
+        for l in logs:
+            date_str = l.get("Date", "")
+            if date_str:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                if dt.month == month_num:
+                    filtered.append(l)
+        return filtered
+    except Exception:
+        return logs
+
+def filter_evals_by_month(evals, selected_month):
+    if not evals or selected_month == "Tất cả các tháng":
+        return evals
+    filtered = []
+    for e in evals:
+        term_str = str(e.get("Term", ""))
+        if selected_month in term_str:
+            filtered.append(e)
+        else:
+            m_num = selected_month.replace("Tháng ", "")
+            if f"Tháng {m_num}" in term_str or f"Kỳ {m_num}" in term_str:
+                filtered.append(e)
+    return filtered
+
+# -----------------------------------------------------------------------------
+# 5. HÀM TẠO B BẢNG & BIỂU ĐỒ TRỰC QUAN (PLOTLY CHARTS)
+# -----------------------------------------------------------------------------
+def render_eq_charts(eval_list, title_prefix=""):
+    if not eval_list:
+        st.info("Chưa có đủ dữ liệu để vẽ biểu đồ trực quan.")
+        return
+    
+    st.markdown(f"#### 📊 BIỂU ĐỒ TRỰC QUAN PHÂN TÍCH CẢM XÚC EQ {title_prefix.upper()}")
+    col_chart1, col_chart2 = st.columns(2)
+    
+    # Chart 1: Donut chart phân bố Nhóm EQ
+    groups = [e.get("Group_Clean", "DUY TRÌ") for e in eval_list]
+    df_g = pd.DataFrame({"Group": groups})
+    counts = df_g["Group"].value_counts().reset_index()
+    counts.columns = ["Nhóm EQ", "Số lượng"]
+    
+    color_map = {
+        "DUY TRÌ": "#4CAF50",
+        "CẦN CẢI THIỆN": "#FF9800",
+        "HỖ TRỢ ĐẶC BIỆT": "#EF5350"
+    }
+    
+    with col_chart1:
+        fig_pie = px.pie(
+            counts, 
+            names="Nhóm EQ", 
+            values="Số lượng", 
+            title="<b>Tỉ lệ Phân bố các Nhóm Trạng Thái EQ</b>",
+            color="Nhóm EQ",
+            color_discrete_map=color_map,
+            hole=0.45
+        )
+        fig_pie.update_traces(textinfo='percent+label', textfont_size=13)
+        fig_pie.update_layout(showlegend=True, margin=dict(t=40, b=20, l=20, r=20))
+        st.plotly_chart(fig_pie, use_container_width=True)
+        
+    # Chart 2: Bar chart điểm trung bình 6 Tiêu chí EQ
+    tc_keys = ["TC1", "TC2", "TC3", "TC4", "TC5", "TC6"]
+    tc_names = [
+        "TC1: Nhận biết", 
+        "TC2: Bày tỏ", 
+        "TC3: Kiềm chế", 
+        "TC4: Đồng cảm", 
+        "TC5: Thích ứng", 
+        "TC6: Lắng nghe"
+    ]
+    avg_scores = []
+    for k in tc_keys:
+        vals = [e.get(k, 0) for e in eval_list if k in e]
+        avg_scores.append(round(sum(vals)/len(vals), 2) if vals else 0)
+        
+    df_tc = pd.DataFrame({"Tiêu chí": tc_names, "Điểm TB": avg_scores})
+    
+    with col_chart2:
+        fig_bar = px.bar(
+            df_tc,
+            x="Tiêu chí",
+            y="Điểm TB",
+            text="Điểm TB",
+            title="<b>Điểm Trung Bình 6 Tiêu Chí EQ (Thang 1-4)</b>",
+            color="Điểm TB",
+            color_continuous_scale=["#FFE082", "#FFC107", "#FF8F00"]
+        )
+        fig_bar.update_traces(textposition='outside')
+        fig_bar.update_layout(yaxis_range=[0, 4.5], margin=dict(t=40, b=20, l=20, r=20))
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+def render_comparison_charts(comp_list, title_prefix=""):
+    if not comp_list:
+        st.info("Chưa có dữ liệu so sánh xu hướng để vẽ biểu đồ.")
+        return
+        
+    st.markdown(f"#### 📈 BIỂU ĐỒ TRỰC QUAN XU HƯỚNG PHÁT TRIỂN EQ {title_prefix.upper()}")
+    col_chart1, col_chart2 = st.columns(2)
+    
+    # Chart 1: So sánh điểm Kỳ 1 vs Kỳ 2 của từng bé
+    df_comp = pd.DataFrame(comp_list)
+    
+    with col_chart1:
+        fig_group = go.Figure()
+        fig_group.add_trace(go.Bar(
+            x=df_comp["Student"],
+            y=df_comp["Score_Term1"],
+            name="Đợt 1 (Kỳ 1)",
+            marker_color="#FFC107"
+        ))
+        fig_group.add_trace(go.Bar(
+            x=df_comp["Student"],
+            y=df_comp["Score_Term2"],
+            name="Đợt 2 (Kỳ 2)",
+            marker_color="#4CAF50"
+        ))
+        fig_group.update_layout(
+            barmode='group',
+            title="<b>So sánh Điểm EQ giữa 2 Đợt Đánh giá Từng Học Sinh</b>",
+            yaxis_range=[0, 4.5],
+            xaxis_title="Học sinh",
+            yaxis_title="Điểm EQ (PEQ)",
+            margin=dict(t=40, b=20, l=20, r=20)
+        )
+        st.plotly_chart(fig_group, use_container_width=True)
+        
+    # Chart 2: Phân bố Xu hướng EQ (Delta)
+    trends = df_comp["Trend"].value_counts().reset_index()
+    trends.columns = ["Xu hướng", "Số lượng"]
+    
+    trend_color_map = {
+        "TIẾN BỘ VƯỢT BẬC": "#2E7D32",
+        "TIẾN BỘ": "#4CAF50",
+        "DUY TRÌ ÔN ĐỊNH": "#2196F3",
+        "CẦN LƯU Ý (THỤT LÙI)": "#EF5350"
+    }
+    
+    with col_chart2:
+        fig_trend = px.bar(
+            trends,
+            x="Xu hướng",
+            y="Số lượng",
+            text="Số lượng",
+            color="Xu hướng",
+            color_discrete_map=trend_color_map,
+            title="<b>Phân bố Xu hướng Phát triển EQ Toàn Lớp</b>"
+        )
+        fig_trend.update_traces(textposition='outside')
+        fig_trend.update_layout(margin=dict(t=40, b=20, l=20, r=20))
+        st.plotly_chart(fig_trend, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# 6. HEADER THƯƠNG HIỆU CHÍNH
 # -----------------------------------------------------------------------------
 head_col1, head_col2 = st.columns([1.2, 3.8])
 with head_col1:
@@ -185,7 +351,7 @@ with head_col2:
     """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 5. GIAO DIỆN BÌA NGOÀI / LANDING PAGE (CHƯA ĐĂNG NHẬP)
+# 7. GIAO DIỆN BÌA NGOÀI / LANDING PAGE (CHƯA ĐĂNG NHẬP)
 # -----------------------------------------------------------------------------
 if st.session_state.logged_user is None:
     col_left, col_right = st.columns([1.1, 1.9], gap="large")
@@ -236,11 +402,11 @@ if st.session_state.logged_user is None:
         st.markdown("#### 📍 Mạng lưới 5 Cơ sở Toàn hệ thống")
         st.markdown("""
             <div>
-                <span class="campus-badge">🏢 TFA Hà Đô (Cát Lái, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Quận 3, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Quận 8, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Him Lam (Quận 7, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Trần Thị Lý (Đà Nẵng)</span>
+                <span class="campus-badge">🏢 TFA Hà Đô (Phường Cát Lái, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -250,9 +416,9 @@ if st.session_state.logged_user is None:
         with col_k1:
             st.info("👶 **Toddler 1 & 2**\n\n*(Nhóm trẻ từ 12–36 tháng)*")
         with col_k2:
-            st.warning("🌱 **Pre-school & Kindergarten**\n\n*(Khối Lớp Mầm & Chồi 3–5 tuổi)*")
+            st.warning("🌱 **Pre-school & Kindergarten**\n\n*(Khối Lớp 3–5 tuổi)*")
         with col_k3:
-            st.success("🎓 **Pre-primary**\n\n*(Khối Lớp Lá 5–6 tuổi chuẩn bị vào Lớp 1)*")
+            st.success("🎓 **Pre-primary**\n\n*(Khối Lớp  5–6 tuổi chuẩn bị vào Lớp 1)*")
 
         st.markdown("""
             <div style="background-color: #FFFDF5; padding: 15px; border-radius: 12px; border: 1px solid #FFE082; margin-top: 15px;">
@@ -266,7 +432,7 @@ if st.session_state.logged_user is None:
         """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 6. KHÔNG GIAN LÀM VIỆC TRONG APP (SAU KHI ĐĂNG NHẬP)
+# 8. KHÔNG GIAN LÀM VIỆC TRONG APP (SAU KHI ĐĂNG NHẬP)
 # -----------------------------------------------------------------------------
 else:
     user_info = st.session_state.users[st.session_state.logged_user]
@@ -421,14 +587,14 @@ else:
                 with c2: 
                     BGH_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[BGH_code]}").strip()
                 
-                BGH_u = st.text_input("Tên đăng nhập BGH (Ví dụ: BGHHD, BGHHL...):", value=f"BGH{BGH_code}").strip()
+                BGH_u = st.text_input("Tên đăng nhập BGH (Ví dụ: BGHHD, BGHHL...):", value=f"bgh{BGH_code}").strip()
                 BGH_p = st.text_input("Mật khẩu BGH:", value="123456")
                 
                 if st.button("➕ Tạo Tài Khoản BGH Cơ Sở"):
-                    if bgh_u in st.session_state.users:
+                    if BGH_u in st.session_state.users:
                         st.warning(f"⚠️ Tên đăng nhập `{BGH_u}` đã tồn tại!")
                     else:
-                        st.session_state.users[BGH_u] = {
+                        st.session_state.users[bgh_u] = {
                             "password": BGH_p, "name": BGH_name, "role": "campus_admin",
                             "campus_code": BGH_code, "campus": CAMPUS_MAP[BGH_code], "status": "active"
                         }
@@ -477,20 +643,36 @@ else:
 
         elif main_menu == "📊 2. Báo cáo EQ Toàn Hệ Thống":
             st.subheader("📊 BÁO CÁO TỔNG HỢP & PHÂN TÍCH XU HƯỚNG EQ TOÀN HỆ THỐNG")
-            sel_c = st.selectbox("Lọc Cơ sở:", ["Tất cả cơ sở"] + list(CAMPUS_MAP.values()))
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                sel_c = st.selectbox("Lọc Cơ sở:", ["Tất cả cơ sở"] + list(CAMPUS_MAP.values()))
+            with col_f2:
+                sel_m = st.selectbox("🗓️ Lọc theo Tháng / Kỳ:", MONTH_OPTIONS)
+                
             evals = st.session_state.evaluations_db
             if sel_c != "Tất cả cơ sở": evals = [e for e in evals if e.get('Campus') == sel_c]
+            evals = filter_evals_by_month(evals, sel_m)
             
             if evals:
                 df_all = prepare_eq_report_df(evals)
                 st.dataframe(df_all, use_container_width=True)
+                
+                # Render Charts
+                render_eq_charts(evals, f"({sel_c} - {sel_m})")
+                
+                st.markdown("---")
                 csv_data = df_all.to_csv(index=False).encode('utf-8-sig')
-                st.download_button("📥 Xuất File Excel / CSV Báo Cáo EQ Chuẩn Mẫu", csv_data, "Bao_Cao_EQ_Chuanti_TFA.csv", "text/csv")
-            else: st.info("Chưa có dữ liệu đánh giá EQ nào.")
+                st.download_button("Xuất File Excel / CSV Báo Cáo EQ Chuẩn Mẫu", csv_data, "Bao_Cao_EQ_Chuanti_TFA.csv", "text/csv")
+            else: st.info("Chưa có dữ liệu đánh giá EQ phù hợp bộ lọc.")
 
         elif main_menu == "📈 3. Bảng So Sánh & Xác Nhận Xu Hướng EQ":
             st.subheader("📈 BẢNG SO SÁNH & XÁC NHẬN XU HƯỚNG PHÁT TRIỂN EQ CỦA TRẺ (GIỮA 2 KỲ/THÁNG)")
-            sel_c = st.selectbox("Lọc Cơ sở:", ["Tất cả cơ sở"] + list(CAMPUS_MAP.values()), key="comp_c")
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                sel_c = st.selectbox("Lọc Cơ sở:", ["Tất cả cơ sở"] + list(CAMPUS_MAP.values()), key="comp_c")
+            with col_f2:
+                sel_m = st.selectbox("🗓️ Lọc theo Tháng:", MONTH_OPTIONS, key="comp_m")
+                
             comps = st.session_state.comparisons_db
             evals = st.session_state.evaluations_db
             
@@ -498,14 +680,21 @@ else:
                 comps = [c for c in comps if c.get('Campus') == sel_c]
                 evals = [e for e in evals if e.get('Campus') == sel_c]
                 
+            evals = filter_evals_by_month(evals, sel_m)
+                
             tab_c1, tab_c2 = st.tabs(["📋 Bảng So Sánh Xu Hướng Từng Học Sinh", "📊 Thống Kê Phân Tích Tổng Hợp Toàn Lớp"])
             
             with tab_c1:
                 if comps:
                     df_comp = prepare_comparison_df(comps)
                     st.dataframe(df_comp, use_container_width=True)
+                    
+                    # Render Comparison Charts
+                    render_comparison_charts(comps, f"({sel_c})")
+                    
+                    st.markdown("---")
                     csv_comp = df_comp.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button("📥 Xuất File Excel/CSV Bảng So Sánh Xu Hướng Của Trẻ", csv_comp, "Bang_So_Sanh_Xu_Huong_EQ_TFA.csv", "text/csv")
+                    st.download_button("Xuất File Excel/CSV Bảng So Sánh Xu Hướng Của Trẻ", csv_comp, "Bang_So_Sanh_Xu_Huong_EQ_TFA.csv", "text/csv")
                 else:
                     st.info("Chưa có dữ liệu bảng so sánh xu hướng. (Giáo viên từng lớp sẽ tạo bảng so sánh ở giao diện Giáo viên).")
 
@@ -517,19 +706,26 @@ else:
                 df_stats = compute_summary_stats(eval_t1, eval_t2)
                 st.table(df_stats)
                 csv_stats = df_stats.to_csv(index=False).encode('utf-8-sig')
-                st.download_button("📥 Xuất File Excel/CSV Thống Kê Phân Tích Tỉ Lệ EQ Toàn Lớp", csv_stats, "Thong_Ke_Ti_Le_Nhom_EQ_TFA.csv", "text/csv")
+                st.download_button("Xuất File Excel/CSV Thống Kê Phân Tích Tỉ Lệ EQ Toàn Lớp", csv_stats, "Thong_Ke_Ti_Le_Nhom_EQ_TFA.csv", "text/csv")
 
         else:
             st.subheader("📝 NHẬT KÝ CẢM XÚC HẰNG NGÀY TOÀN HỆ THỐNG")
-            sel_c = st.selectbox("Lọc Cơ sở:", ["Tất cả cơ sở"] + list(CAMPUS_MAP.values()), key="log_c")
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                sel_c = st.selectbox("Lọc Cơ sở:", ["Tất cả cơ sở"] + list(CAMPUS_MAP.values()), key="log_c")
+            with col_f2:
+                sel_m = st.selectbox("🗓️ Lọc theo Tháng:", MONTH_OPTIONS, key="log_m")
+                
             logs = st.session_state.daily_logs_db
             if sel_c != "Tất cả cơ sở": logs = [l for l in logs if l.get('Campus') == sel_c]
+            logs = filter_logs_by_month(logs, sel_m)
+            
             if logs:
                 df_l = prepare_daily_log_df(logs)
                 st.dataframe(df_l, use_container_width=True)
                 csv_l = df_l.to_csv(index=False).encode('utf-8-sig')
-                st.download_button("📥 Xuất File Excel / CSV Nhật Ký Chuẩn Mẫu", csv_l, "Nhat_Ky_Cam_Xuc_TFA.csv", "text/csv")
-            else: st.info("Chưa có dữ liệu nhật ký hằng ngày.")
+                st.download_button("Xuất File Excel / CSV Nhật Ký Chuẩn Mẫu", csv_l, "Nhat_Ky_Cam_Xuc_TFA.csv", "text/csv")
+            else: st.info("Chưa có dữ liệu nhật ký hằng ngày phù hợp bộ lọc.")
 
     # =========================================================================
     # VAI TRÒ 2: BGH TỪNG CƠ SỞ (CAMPUS ADMIN)
@@ -615,27 +811,43 @@ else:
 
         elif main_menu == f"📊 2. Báo cáo EQ Cơ sở ({my_code})":
             st.subheader(f"📊 BÁO CÁO TỔNG HỢP & PHÂN TÍCH XU HƯỚNG EQ - {my_campus.upper()}")
+            sel_m = st.selectbox("🗓️ Lọc theo Tháng / Kỳ:", MONTH_OPTIONS, key="camp_eval_m")
+            
             campus_evals = [e for e in st.session_state.evaluations_db if e.get('Campus') == my_campus]
+            campus_evals = filter_evals_by_month(campus_evals, sel_m)
             
             if campus_evals:
                 df_c = prepare_eq_report_df(campus_evals)
                 st.dataframe(df_c, use_container_width=True)
+                
+                # Render Charts
+                render_eq_charts(campus_evals, f"({my_code} - {sel_m})")
+                
+                st.markdown("---")
                 csv_c = df_c.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(label=f"📥 Xuất Báo Cáo EQ {my_code} (Chuẩn Mẫu File)", data=csv_c, file_name=f"Bao_Cao_EQ_{my_code}_Chuanti.csv", mime="text/csv")
-            else: st.info(f"Chưa có dữ liệu đánh giá EQ nào thuộc {my_campus}.")
+                st.download_button(label=f"Xuất Báo Cáo EQ {my_code} (Chuẩn Mẫu File)", data=csv_c, file_name=f"Bao_Cao_EQ_{my_code}_Chuanti.csv", mime="text/csv")
+            else: st.info(f"Chưa có dữ liệu đánh giá EQ nào phù hợp bộ lọc.")
 
         elif main_menu == f"📈 3. Bảng So Sánh Xu Hướng EQ ({my_code})":
             st.subheader(f"📈 BẢNG SO SÁNH & XÁC NHẬN XU HƯỚNG EQ - {my_campus.upper()}")
+            sel_m = st.selectbox("🗓️ Lọc theo Tháng:", MONTH_OPTIONS, key="camp_comp_m")
+            
             campus_comps = [c for c in st.session_state.comparisons_db if c.get('Campus') == my_campus]
             campus_evals = [e for e in st.session_state.evaluations_db if e.get('Campus') == my_campus]
+            campus_evals = filter_evals_by_month(campus_evals, sel_m)
             
             tab_c1, tab_c2 = st.tabs(["📋 Bảng So Sánh Xu Hướng Từng Học Sinh", "📊 Thống Kê Phân Tích Tổng Hợp Cơ Sở"])
             with tab_c1:
                 if campus_comps:
                     df_comp = prepare_comparison_df(campus_comps)
                     st.dataframe(df_comp, use_container_width=True)
+                    
+                    # Render Comparison Charts
+                    render_comparison_charts(campus_comps, f"({my_code})")
+                    
+                    st.markdown("---")
                     csv_comp = df_comp.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button("📥 Xuất File Excel/CSV Bảng So Sánh Xu Hướng EQ Cơ Sở", csv_comp, f"Bang_So_Sanh_Xu_Huong_{my_code}.csv", "text/csv")
+                    st.download_button("Xuất File Excel/CSV Bảng So Sánh Xu Hướng EQ Cơ Sở", csv_comp, f"Bang_So_Sanh_Xu_Huong_{my_code}.csv", "text/csv")
                 else: st.info("Chưa có dữ liệu so sánh xu hướng nào thuộc cơ sở.")
 
             with tab_c2:
@@ -646,18 +858,21 @@ else:
                 df_stats = compute_summary_stats(eval_t1, eval_t2)
                 st.table(df_stats)
                 csv_stats = df_stats.to_csv(index=False).encode('utf-8-sig')
-                st.download_button("📥 Xuất File Excel/CSV Thống Kê Phân Tích Tỉ Lệ EQ Cơ Sở", csv_stats, f"Thong_Ke_Ti_Le_Nhom_EQ_{my_code}.csv", "text/csv")
+                st.download_button("Xuất File Excel/CSV Thống Kê Phân Tích Tỉ Lệ EQ Cơ Sở", csv_stats, f"Thong_Ke_Ti_Le_Nhom_EQ_{my_code}.csv", "text/csv")
 
         else:
             st.subheader(f"📝 NHẬT KÝ CẢM XÚC - {my_campus.upper()}")
+            sel_m = st.selectbox("🗓️ Lọc theo Tháng:", MONTH_OPTIONS, key="camp_log_m")
+            
             campus_logs = [l for l in st.session_state.daily_logs_db if l.get('Campus') == my_campus]
+            campus_logs = filter_logs_by_month(campus_logs, sel_m)
             
             if campus_logs:
                 df_cl = prepare_daily_log_df(campus_logs)
                 st.dataframe(df_cl, use_container_width=True)
                 csv_cl = df_cl.to_csv(index=False).encode('utf-8-sig')
-                st.download_button(label=f"📥 Xuất Nhật Ký Cảm Xúc {my_code} (Chuẩn Mẫu File)", data=csv_cl, file_name=f"Nhat_Ky_Cam_Xuc_{my_code}.csv", mime="text/csv")
-            else: st.info(f"Chưa có nhật ký cảm xúc nào thuộc {my_campus}.")
+                st.download_button(label=f"Xuất Nhật Ký Cảm Xúc {my_code} (Chuẩn Mẫu File)", data=csv_cl, file_name=f"Nhat_Ky_Cam_Xuc_{my_code}.csv", mime="text/csv")
+            else: st.info(f"Chưa có nhật ký cảm xúc nào phù hợp bộ lọc.")
 
     # =========================================================================
     # VAI TRÒ 3: GIÁO VIÊN TỪNG LỚP
@@ -701,10 +916,52 @@ else:
                     else: st.warning("Vui lòng nhập tên học sinh!")
 
             with col_b:
-                st.markdown(f"##### 📋 Danh sách Học sinh hiện tại ({user_info.get('class_name')})")
+                st.markdown(f"##### 📋 Danh sách & Quản lý Học sinh ({user_info.get('class_name')})")
                 students = st.session_state.students_db.get(user_key, [])
                 if students:
-                    for idx, s in enumerate(students, 1): st.write(f"{idx}. **{s}**")
+                    for idx, s in enumerate(students):
+                        c_s1, c_s2, c_s3 = st.columns([2.5, 1, 1])
+                        with c_s1:
+                            st.write(f"**{idx+1}. {s}**")
+                        with c_s2:
+                            if st.button("✏️ Sửa", key=f"edit_std_btn_{idx}_{s}"):
+                                st.session_state[f"editing_std_{idx}"] = not st.session_state.get(f"editing_std_{idx}", False)
+                        with c_s3:
+                            if st.button("🗑️ Xóa", key=f"del_std_btn_{idx}_{s}"):
+                                deleted_name = st.session_state.students_db[user_key].pop(idx)
+                                st.success(f"Đã xóa học sinh **{deleted_name}**!")
+                                st.rerun()
+                        
+                        if st.session_state.get(f"editing_std_{idx}", False):
+                            with st.form(key=f"form_edit_std_{idx}"):
+                                new_name_val = st.text_input("Sửa tên học sinh:", value=s)
+                                col_f1, col_f2 = st.columns(2)
+                                with col_f1:
+                                    if st.form_submit_button("💾 Lưu thay đổi"):
+                                        if new_name_val.strip():
+                                            old_name = st.session_state.students_db[user_key][idx]
+                                            st.session_state.students_db[user_key][idx] = new_name_val.strip()
+                                            
+                                            # Cập nhật lại tên ở các bảng ghi đã có
+                                            for ev in st.session_state.evaluations_db:
+                                                if ev.get("Teacher") == user_info['name'] and ev.get("Student") == old_name:
+                                                    ev["Student"] = new_name_val.strip()
+                                            for lg in st.session_state.daily_logs_db:
+                                                if lg.get("Teacher") == user_info['name'] and lg.get("Student") == old_name:
+                                                    lg["Student"] = new_name_val.strip()
+                                            for cp in st.session_state.comparisons_db:
+                                                if cp.get("Teacher") == user_info['name'] and cp.get("Student") == old_name:
+                                                    cp["Student"] = new_name_val.strip()
+                                                    
+                                            st.session_state[f"editing_std_{idx}"] = False
+                                            st.success(f"Đã cập nhật tên mới: **{new_name_val.strip()}**!")
+                                            st.rerun()
+                                        else:
+                                            st.warning("Tên học sinh không được để trống!")
+                                with col_f2:
+                                    if st.form_submit_button("❌ Hủy"):
+                                        st.session_state[f"editing_std_{idx}"] = False
+                                        st.rerun()
                 else: st.info("Lớp chưa có học sinh nào.")
 
         elif main_menu == "📝 2. Nhật ký Cảm xúc Hằng ngày":
@@ -742,7 +999,9 @@ else:
             else:
                 col_e1, col_e2 = st.columns(2)
                 with col_e1: std_eval = st.selectbox("Chọn học sinh đánh giá:", students)
-                with col_e2: term = st.selectbox("Chọn Kỳ đánh giá:", ["Tháng 6 / Kỳ 1", "Tháng 7 / Kỳ 2"])
+                with col_e2: 
+                    eval_month = st.selectbox("Chọn Tháng đánh giá:", [f"Tháng {m}" for m in range(1, 13)], index=5)
+                    term = f"{eval_month} / Kỳ {1 if int(eval_month.replace('Tháng ', '')) <= 6 else 2}"
                 
                 st.markdown("##### 📐 Chấm điểm 6 Tiêu chí (Thang Mức 1 - Mức 4)")
                 c1, c2 = st.columns(2)
@@ -781,7 +1040,7 @@ else:
                         "P_EQ": peq, "Group": group, "Group_Clean": group_clean,
                         "Context": context_input, "Conclusion": conclusion_input, "Plan": plan_input
                     })
-                    st.success(f"🎉 Đã lưu đánh giá EQ chuẩn mẫu file nguồn cho bé **{std_eval}**!")
+                    st.success(f"🎉 Đã lưu đánh giá EQ chuẩn mẫu cho bé **{std_eval}** ({term})!")
 
         elif main_menu == "📈 4. Bảng So Sánh & Xác Nhận Xu Hướng EQ":
             st.subheader(f"📈 BẢNG SO SÁNH & XÁC NHẬN XU HƯỚNG EQ - LỚP {user_info.get('class_name').upper()}")
@@ -789,13 +1048,16 @@ else:
             
             if not students: st.warning("⚠️ Lớp bạn chưa có học sinh. Vui lòng vào mục '1. Tạo Lớp & Quản lý Học sinh' để thêm bé!")
             else:
-                st.markdown("##### ➕ Tạo/Cập nhật nhận định so sánh xu hướng 2 tháng (Kỳ 1 vs Kỳ 2)")
+                st.markdown("##### ➕ Tạo/Cập nhật nhận định so sánh xu hướng 2 tháng")
+                std_comp = st.selectbox("Chọn học sinh so sánh:", students, key="std_cmp")
+                
                 col_cmp1, col_cmp2 = st.columns(2)
                 with col_cmp1:
-                    std_comp = st.selectbox("Chọn học sinh so sánh:", students, key="std_cmp")
-                    score_t1 = st.number_input("Điểm Kỳ 1 (Tháng 6):", min_value=1.0, max_value=4.0, value=2.2, step=0.1)
+                    month_a = st.selectbox("Chọn Tháng đợt 1:", [f"Tháng {m}" for m in range(1, 13)], index=5, key="m_a")
+                    score_t1 = st.number_input(f"Điểm {month_a}:", min_value=1.0, max_value=4.0, value=2.2, step=0.1)
                 with col_cmp2:
-                    score_t2 = st.number_input("Điểm Kỳ 2 (Tháng 7):", min_value=1.0, max_value=4.0, value=3.0, step=0.1)
+                    month_b = st.selectbox("Chọn Tháng đợt 2:", [f"Tháng {m}" for m in range(1, 13)], index=6, key="m_b")
+                    score_t2 = st.number_input(f"Điểm {month_b}:", min_value=1.0, max_value=4.0, value=3.0, step=0.1)
                     
                 delta_score = round(score_t2 - score_t1, 2)
                 if delta_score >= 0.5:
@@ -809,7 +1071,7 @@ else:
                     
                 st.metric("Biến thiên điểm (Delta):", delta_score, delta=trend_tag)
                 
-                c_input = st.text_area("Kết luận xu hướng:", value=f"Bé {std_comp} có xu hướng {trend_tag.lower()}...")
+                c_input = st.text_area("Kết luận xu hướng:", value=f"Bé {std_comp} có xu hướng {trend_tag.lower()} từ {month_a} sang {month_b}...")
                 p_input = st.text_area("Kế hoạch tác động tiếp theo:", value=f"Tiếp tục hỗ trợ bé {std_comp}...")
                 
                 if st.button("💾 Lưu Bảng So Sánh Xu Hướng"):
@@ -824,14 +1086,19 @@ else:
                     st.success(f"🎉 Đã lưu bảng so sánh xu hướng cho bé **{std_comp}**!")
 
                 st.markdown("---")
-                st.markdown("##### 📋 Bảng So Sánh Xu Hướng Toàn Lớp (Tháng 6 vs Tháng 7)")
+                st.markdown("##### 📋 Bảng So Sánh Xu Hướng Toàn Lớp")
                 my_comps = [c for c in st.session_state.comparisons_db if c['Teacher'] == user_info['name']]
                 
                 if my_comps:
                     df_my_comp = prepare_comparison_df(my_comps)
                     st.dataframe(df_my_comp, use_container_width=True)
+                    
+                    # Render Charts
+                    render_comparison_charts(my_comps, f"Lớp {user_info['class_name']}")
+                    
+                    st.markdown("---")
                     csv_my_comp = df_my_comp.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button("📥 Xuất File Excel/CSV Bảng So Sánh Xu Hướng Lớp", csv_my_comp, f"Bang_So_Sanh_Xu_Huong_{user_info['class_name']}.csv", "text/csv")
+                    st.download_button("Xuất File Excel/CSV Bảng So Sánh Xu Hướng Lớp", csv_my_comp, f"Bang_So_Sanh_Xu_Huong_{user_info['class_name']}.csv", "text/csv")
 
                 st.markdown("---")
                 st.markdown("##### 📊 Thông tin phân tích tổng hợp tỉ lệ nhóm EQ toàn lớp")
@@ -840,13 +1107,18 @@ else:
                 df_my_stats = compute_summary_stats(my_evals_t1, my_evals_t2)
                 st.table(df_my_stats)
                 csv_my_stats = df_my_stats.to_csv(index=False).encode('utf-8-sig')
-                st.download_button("📥 Xuất File Excel/CSV Thống Kê Phân Tích Tỉ Lệ EQ Lớp", csv_my_stats, f"Thong_Ke_Ti_Le_Nhom_EQ_{user_info['class_name']}.csv", "text/csv")
+                st.download_button("Xuất File Excel/CSV Thống Kê Phân Tích Tỉ Lệ EQ Lớp", csv_my_stats, f"Thong_Ke_Ti_Le_Nhom_EQ_{user_info['class_name']}.csv", "text/csv")
 
         else:
             st.subheader(f"📊 BÁO CÁO & XUẤT FILE LỚP {user_info.get('class_name').upper()}")
+            sel_m = st.selectbox("🗓️ Lọc theo Tháng / Kỳ:", MONTH_OPTIONS, key="teacher_report_m")
+            
             my_evals = [e for e in st.session_state.evaluations_db if e['Teacher'] == user_info['name']]
             my_logs = [l for l in st.session_state.daily_logs_db if l['Teacher'] == user_info['name']]
             my_comps = [c for c in st.session_state.comparisons_db if c['Teacher'] == user_info['name']]
+            
+            my_evals = filter_evals_by_month(my_evals, sel_m)
+            my_logs = filter_logs_by_month(my_logs, sel_m)
             
             tab_r1, tab_r2, tab_r3 = st.tabs(["🎯 Báo cáo EQ Lớp Chuẩn Mẫu", "📈 Bảng So Sánh Xu Hướng EQ", "📝 Nhật ký Cảm xúc Lớp"])
             
@@ -854,16 +1126,26 @@ else:
                 if my_evals:
                     df_eval = prepare_eq_report_df(my_evals)
                     st.dataframe(df_eval, use_container_width=True)
+                    
+                    # Render Charts
+                    render_eq_charts(my_evals, f"Lớp {user_info['class_name']} - {sel_m}")
+                    
+                    st.markdown("---")
                     csv_eval = df_eval.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button("📥 Xuất File Excel / CSV Báo Cáo EQ Chuẩn Mẫu", csv_eval, f"Bao_Cao_EQ_{user_info['class_name']}_Chuanti.csv", "text/csv")
-                else: st.info("Chưa có dữ liệu đánh giá EQ nào.")
+                    st.download_button("Xuất File Excel / CSV Báo Cáo EQ Chuẩn Mẫu", csv_eval, f"Bao_Cao_EQ_{user_info['class_name']}_Chuanti.csv", "text/csv")
+                else: st.info("Chưa có dữ liệu đánh giá EQ nào phù hợp bộ lọc.")
 
             with tab_r2:
                 if my_comps:
                     df_comp = prepare_comparison_df(my_comps)
                     st.dataframe(df_comp, use_container_width=True)
+                    
+                    # Render Charts
+                    render_comparison_charts(my_comps, f"Lớp {user_info['class_name']}")
+                    
+                    st.markdown("---")
                     csv_comp = df_comp.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button("📥 Xuất File Excel/CSV Bảng So Sánh Xu Hướng", csv_comp, f"Bang_So_Sanh_Xu_Huong_{user_info['class_name']}.csv", "text/csv")
+                    st.download_button("Xuất File Excel/CSV Bảng So Sánh Xu Hướng", csv_comp, f"Bang_So_Sanh_Xu_Huong_{user_info['class_name']}.csv", "text/csv")
                 else: st.info("Chưa có dữ liệu so sánh xu hướng.")
 
             with tab_r3:
@@ -871,5 +1153,5 @@ else:
                     df_logs = prepare_daily_log_df(my_logs)
                     st.dataframe(df_logs, use_container_width=True)
                     csv_logs = df_logs.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button("📥 Xuất Nhật Ký Lớp Chuẩn Mẫu (CSV/Excel)", csv_logs, f"Nhat_Ky_{user_info['class_name']}.csv", "text/csv")
-                else: st.info("Chưa có nhật ký cảm xúc nào.")
+                    st.download_button("Xuất Nhật Ký Lớp Chuẩn Mẫu (CSV/Excel)", csv_logs, f"Nhat_Ky_{user_info['class_name']}.csv", "text/csv")
+                else: st.info("Chưa có nhật ký cảm xúc nào phù hợp bộ lọc.")
