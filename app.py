@@ -466,4 +466,4 @@ else:
                     st.dataframe(df_logs, use_container_width=True)
                     csv_logs = df_logs.to_csv(index=False).encode('utf-8-sig')
                     st.download_button("📥 Xuất Nhật Ký Lớp (CSV/Excel)", csv_logs, f"Nhat_Ky_{user_info['class_name']}.csv", "text/csv")
-                else: st.info("Chưa có nhật ký cảm xúc nào."
+                else: st.info("Chưa có nhật ký cảm xúc nào.")
