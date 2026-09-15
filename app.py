@@ -110,8 +110,8 @@ TFA_CLASSES = [
     "Pre-primary"
 ]
 
-# Tên file logo nội bộ
-LOGO_FILE = "logo.png"
+# Tên file logo nội bộ (Hỗ trợ cả 'logo.png' và 'Logo TFA Ver2.1 .png')
+LOGO_FILE = "logo.png" if os.path.exists("logo.png") else ("Logo TFA Ver2.1 .png" if os.path.exists("Logo TFA Ver2.1 .png") else "logo.png")
 
 # -----------------------------------------------------------------------------
 # 3. LƯU TRỮ SESSION STATE (CƠ SỞ DỮ LIỆU TẠM THỜI)
@@ -163,14 +163,14 @@ if 'daily_logs_db' not in st.session_state:
     st.session_state.daily_logs_db = []
 
 # -----------------------------------------------------------------------------
-# 4. HEADER THƯƠNG HIỆU CHÍNH (CÓ LOGO TFA NỘI BỘ)
+# 4. HEADER THƯƠNG HIỆU CHÍNH (CÓ LOGO TFA KÍCH THƯỚC LỚN HƠN)
 # -----------------------------------------------------------------------------
-head_col1, head_col2 = st.columns([1, 5])
+head_col1, head_col2 = st.columns([1.2, 3.8])
 with head_col1:
     if os.path.exists(LOGO_FILE):
-        st.image(LOGO_FILE, width=120)
+        st.image(LOGO_FILE, width=220)  # Tăng kích thước logo Header lên 220px
     else:
-        st.write("☀️ **TFA**")
+        st.write("☀️ **THE FIRST ACADEMY**")
 with head_col2:
     st.markdown("""
         <div class="main-header">
@@ -197,7 +197,7 @@ if st.session_state.logged_user is None:
         """, unsafe_allow_html=True)
         
         if os.path.exists(LOGO_FILE):
-            st.image(LOGO_FILE, use_container_width=True)
+            st.image(LOGO_FILE, width=260)  # Tăng kích thước logo ô Đăng nhập lên 260px
             
         login_user = st.text_input("👤 Tên đăng nhập:", key="login_u", placeholder="Nhập tên đăng nhập...").strip()
         login_pass = st.text_input("🔑 Mật khẩu:", type="password", key="login_p", placeholder="Nhập mật khẩu...").strip()
@@ -272,7 +272,7 @@ else:
     
     # --- SIDEBAR THÔNG TIN ---
     if os.path.exists(LOGO_FILE):
-        st.sidebar.image(LOGO_FILE, width=160)
+        st.sidebar.image(LOGO_FILE, width=220)  # Tăng kích thước logo Sidebar lên 220px
     st.sidebar.markdown(f"### 👤 Người dùng: **{user_info['name']}**")
     
     if role == "super_admin":
