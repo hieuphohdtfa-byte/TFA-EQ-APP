@@ -103,8 +103,7 @@ CAMPUS_MAP = {
 }
 
 TFA_CLASSES = [
-    "Toddler 1",
-    "Toddler 2",
+    "Toddler ",
     "Pre-school",
     "Kindergarten",
     "Pre-primary"
