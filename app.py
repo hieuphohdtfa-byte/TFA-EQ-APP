@@ -81,6 +81,16 @@ st.markdown("""
             display: inline-block;
             margin: 4px;
         }
+        .note-badge {
+            background-color: #E3F2FD;
+            color: #0D47A1;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            display: inline-block;
+            margin-top: 4px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -96,6 +106,8 @@ CAMPUS_MAP = {
 }
 
 TFA_CLASSES = ["Pre-school (3-4 tuổi)", "Kindergarten (4-5 tuổi)", "Pre-primary (5-6 tuổi)"]
+
+SCHOOL_YEAR_OPTIONS = ["2024 - 2025", "2025 - 2026", "2026 - 2027", "2027 - 2028"]
 
 TFA_ROUTINES = [
     "Đón trẻ - Thể dục sáng", "Ăn sáng", "Hoạt động có chủ đích",
@@ -239,9 +251,9 @@ def auto_map_daily_to_criteria(student_name, teacher_name, daily_df):
     total_logs = len(std_logs)
     
     context_evidences = []
-    tc5_signals = [] # Môi trường / Đón trả trẻ
-    tc4_signals = [] # Quan hệ bạn bè / Hoạt động nhóm
-    tc3_signals = [] # Can thiệp / Tự cân bằng
+    tc5_signals = []
+    tc4_signals = []
+    tc3_signals = []
     
     for _, row in std_logs.iterrows():
         emotions_text = str(row.get('Emotions', ''))
@@ -255,21 +267,18 @@ def auto_map_daily_to_criteria(student_name, teacher_name, daily_df):
         if has_neg: neg_emotions_count += 1
         if has_pos: pos_emotions_count += 1
         
-        # Tách tín hiệu TC5 (Thích ứng môi trường Đón/Trả trẻ)
         if "Đón trẻ" in emotions_text or "Trả trẻ" in emotions_text or "Tình huống phát sinh" in emotions_text:
             if "Giận" in emotions_text or "Buồn" in emotions_text or "Lo lắng" in emotions_text:
                 tc5_signals.append(1 if "khóc" in note.lower() or "ăn vạ" in note.lower() else 2)
             else:
                 tc5_signals.append(4 if "tự giác" in note.lower() or "chủ động" in note.lower() else 3)
                 
-        # Tách tín hiệu TC4 (Đồng cảm & Quan hệ xã hội)
         if "Hoạt động chiều" in emotions_text or "Hoạt động có chủ đích" in emotions_text:
             if "Yêu thương" in emotions_text or "Tự hào" in emotions_text or "an ủi" in note.lower() or "chia sẻ" in note.lower():
                 tc4_signals.append(4 if "chủ động" in note.lower() or "hòa giải" in note.lower() else 3)
             elif "Giận" in emotions_text:
                 tc4_signals.append(1 if "đánh" in note.lower() or "tranh đồ" in note.lower() else 2)
                 
-        # Tách tín hiệu TC3 & TC6 (Can thiệp & Khả năng tự dịu)
         if interv:
             if "tự dịu" in interv.lower() or "góc bình tĩnh" in interv.lower() or "ngay" in interv.lower():
                 tc3_signals.append(4)
@@ -284,7 +293,6 @@ def auto_map_daily_to_criteria(student_name, teacher_name, daily_df):
             if interv: ev_item += f" | Cô hỗ trợ: {interv}"
             context_evidences.append(ev_item)
 
-    # Tính toán mức gợi ý cho từng Tiêu chí (1 - 4)
     if tc3_signals:
         auto_tc3 = round(sum(tc3_signals) / len(tc3_signals))
     else:
@@ -296,7 +304,6 @@ def auto_map_daily_to_criteria(student_name, teacher_name, daily_df):
     auto_tc5 = round(sum(tc5_signals) / len(tc5_signals)) if tc5_signals else (2 if neg_emotions_count > 3 else 3)
     auto_tc6 = auto_tc3
     
-    # Đảm bảo điểm nằm trong khoảng 1..4
     auto_tc1 = max(1, min(4, auto_tc1))
     auto_tc2 = max(1, min(4, auto_tc2))
     auto_tc3 = max(1, min(4, auto_tc3))
@@ -365,10 +372,31 @@ if 'gas_loaded' not in st.session_state:
     with st.spinner("🔄 Đang nạp dữ liệu từ Google Trang tính..."):
         gas_data = load_all_from_gas()
         st.session_state.users_df = pd.DataFrame(gas_data.get("Users", [])) if gas_data.get("Users") else DEFAULT_USERS_DF
-        st.session_state.students_df = pd.DataFrame(gas_data.get("Students", [])) if gas_data.get("Students") else pd.DataFrame(columns=["teacher_user", "student_name"])
-        st.session_state.evaluations_df = pd.DataFrame(gas_data.get("Evaluations", [])) if gas_data.get("Evaluations") else pd.DataFrame(columns=["Teacher", "Campus", "Class", "Student", "Term", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "P_EQ", "Group_Clean", "Context", "Conclusion", "Plan"])
+        
+        st.session_state.students_df = pd.DataFrame(gas_data.get("Students", [])) if gas_data.get("Students") else pd.DataFrame(columns=["teacher_user", "student_name", "student_note"])
+        if "student_note" not in st.session_state.students_df.columns:
+            st.session_state.students_df["student_note"] = ""
+            
+        st.session_state.evaluations_df = pd.DataFrame(gas_data.get("Evaluations", [])) if gas_data.get("Evaluations") else pd.DataFrame(columns=["Teacher", "Campus", "Class", "Student", "School_Year", "Term", "Eval_Date", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6", "P_EQ", "Group_Clean", "Context", "Conclusion", "Plan"])
+        if "School_Year" not in st.session_state.evaluations_df.columns:
+            st.session_state.evaluations_df["School_Year"] = "2024 - 2025"
+        if "Eval_Date" not in st.session_state.evaluations_df.columns:
+            st.session_state.evaluations_df["Eval_Date"] = datetime.today().strftime("%d/%m/%Y")
+            
         st.session_state.daily_logs_df = pd.DataFrame(gas_data.get("DailyLogs", [])) if gas_data.get("DailyLogs") else pd.DataFrame(columns=["Teacher", "Campus", "Class", "Student", "Date", "Routine", "Emotions", "Note", "Intervention", "Summary", "Details_JSON"])
-        st.session_state.comparisons_df = pd.DataFrame(gas_data.get("Comparisons", [])) if gas_data.get("Comparisons") else pd.DataFrame(columns=["Teacher", "Campus", "Class", "Student", "Score_Term1", "Score_Term2", "Delta", "Trend", "Conclusion", "Plan"])
+        
+        st.session_state.comparisons_df = pd.DataFrame(gas_data.get("Comparisons", [])) if gas_data.get("Comparisons") else pd.DataFrame(columns=["Teacher", "Campus", "Class", "Student", "School_Year", "Comp_Type", "Period_1", "Period_2", "Score_Term1", "Score_Term2", "Delta", "Trend", "Conclusion", "Plan", "Comp_Date"])
+        if "School_Year" not in st.session_state.comparisons_df.columns:
+            st.session_state.comparisons_df["School_Year"] = "2024 - 2025"
+        if "Comp_Type" not in st.session_state.comparisons_df.columns:
+            st.session_state.comparisons_df["Comp_Type"] = "So sánh 2 Kỳ"
+        if "Period_1" not in st.session_state.comparisons_df.columns:
+            st.session_state.comparisons_df["Period_1"] = "Kỳ 1 (Tháng 9-12)"
+        if "Period_2" not in st.session_state.comparisons_df.columns:
+            st.session_state.comparisons_df["Period_2"] = "Kỳ 2 (Tháng 1-5)"
+        if "Comp_Date" not in st.session_state.comparisons_df.columns:
+            st.session_state.comparisons_df["Comp_Date"] = datetime.today().strftime("%d/%m/%Y")
+            
         st.session_state.gas_loaded = True
 
 if 'logged_user' not in st.session_state:
@@ -389,20 +417,30 @@ def get_users_dict():
     return u_dict
 
 # -----------------------------------------------------------------------------
-# 4. HÀM CHUẨN HÓA BẢNG XUẤT FILE EXCEL/CSV CHUẨN THEO MẪU
+# 4. HÀM CHUẨN HÓA BẢNG XUẤT FILE EXCEL/CSV CHUẨN THEO MẪU (BỔ SUNG NGÀY THÁNG NĂM)
 # -----------------------------------------------------------------------------
 def format_evaluations_export(df):
     cols = [
-        "STT", "Tên học sinh", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6",
-        "Điểm TB (PEQ)", "Nhóm Trạng Thái", "Bối cảnh/Minh chứng điển hình (hành vi cụ thể)",
-        "Kết luận xu hướng", "Kế hoạch tác động tiếp theo", "Kỳ / Tháng", "Lớp", "Cơ sở", "Giáo viên"
+        "STT", "Ngày đánh giá", "Tên học sinh", "Lớp", "Cơ sở", "Giáo viên",
+        "Năm học", "Kỳ / Tháng",
+        "TC1", "TC2", "TC3", "TC4", "TC5", "TC6",
+        "Điểm TB (PEQ)", "Nhóm Trạng Thái",
+        "Bối cảnh/Minh chứng điển hình (hành vi cụ thể)",
+        "Kết luận xu hướng", "Kế hoạch tác động tiếp theo"
     ]
     if df is None or df.empty:
         return pd.DataFrame(columns=cols)
     
     export_df = pd.DataFrame()
     export_df["STT"] = range(1, len(df) + 1)
+    export_df["Ngày đánh giá"] = df["Eval_Date"].values if "Eval_Date" in df.columns else datetime.today().strftime("%d/%m/%Y")
     export_df["Tên học sinh"] = df["Student"].values if "Student" in df.columns else ""
+    export_df["Lớp"] = df["Class"].values if "Class" in df.columns else ""
+    export_df["Cơ sở"] = df["Campus"].values if "Campus" in df.columns else ""
+    export_df["Giáo viên"] = df["Teacher"].values if "Teacher" in df.columns else ""
+    export_df["Năm học"] = df["School_Year"].values if "School_Year" in df.columns else "2024 - 2025"
+    export_df["Kỳ / Tháng"] = df["Term"].values if "Term" in df.columns else ""
+    
     export_df["TC1"] = pd.to_numeric(df["TC1"], errors='coerce').fillna(0) if "TC1" in df.columns else 0
     export_df["TC2"] = pd.to_numeric(df["TC2"], errors='coerce').fillna(0) if "TC2" in df.columns else 0
     export_df["TC3"] = pd.to_numeric(df["TC3"], errors='coerce').fillna(0) if "TC3" in df.columns else 0
@@ -419,53 +457,54 @@ def format_evaluations_export(df):
     export_df["Bối cảnh/Minh chứng điển hình (hành vi cụ thể)"] = df["Context"].values if "Context" in df.columns else ""
     export_df["Kết luận xu hướng"] = df["Conclusion"].values if "Conclusion" in df.columns else ""
     export_df["Kế hoạch tác động tiếp theo"] = df["Plan"].values if "Plan" in df.columns else ""
-    export_df["Kỳ / Tháng"] = df["Term"].values if "Term" in df.columns else ""
-    export_df["Lớp"] = df["Class"].values if "Class" in df.columns else ""
-    export_df["Cơ sở"] = df["Campus"].values if "Campus" in df.columns else ""
-    export_df["Giáo viên"] = df["Teacher"].values if "Teacher" in df.columns else ""
     
     return export_df
 
 def format_comparisons_export(df):
     cols = [
-        "STT", "Tên học sinh", "Điểm đợt 1 (Kỳ 1)", "Điểm đợt 2 (Kỳ 2)",
-        "Biến thiên", "Xu hướng EQ", "Kết luận xu hướng", "Kế hoạch tác động tiếp theo",
-        "Lớp", "Cơ sở", "Giáo viên"
+        "STT", "Ngày so sánh", "Tên học sinh", "Lớp", "Cơ sở", "Giáo viên",
+        "Năm học", "Loại so sánh", "Đợt 1", "Điểm đợt 1", "Đợt 2", "Điểm đợt 2",
+        "Biến thiên", "Xu hướng EQ", "Kết luận xu hướng", "Kế hoạch tác động tiếp theo"
     ]
     if df is None or df.empty:
         return pd.DataFrame(columns=cols)
     
     export_df = pd.DataFrame()
     export_df["STT"] = range(1, len(df) + 1)
+    export_df["Ngày so sánh"] = df["Comp_Date"].values if "Comp_Date" in df.columns else datetime.today().strftime("%d/%m/%Y")
     export_df["Tên học sinh"] = df["Student"].values if "Student" in df.columns else ""
-    export_df["Điểm đợt 1 (Kỳ 1)"] = pd.to_numeric(df["Score_Term1"], errors='coerce').fillna(0.0) if "Score_Term1" in df.columns else 0.0
-    export_df["Điểm đợt 2 (Kỳ 2)"] = pd.to_numeric(df["Score_Term2"], errors='coerce').fillna(0.0) if "Score_Term2" in df.columns else 0.0
+    export_df["Lớp"] = df["Class"].values if "Class" in df.columns else ""
+    export_df["Cơ sở"] = df["Campus"].values if "Campus" in df.columns else ""
+    export_df["Giáo viên"] = df["Teacher"].values if "Teacher" in df.columns else ""
+    export_df["Năm học"] = df["School_Year"].values if "School_Year" in df.columns else "2024 - 2025"
+    export_df["Loại so sánh"] = df["Comp_Type"].values if "Comp_Type" in df.columns else "So sánh 2 Kỳ"
+    export_df["Đợt 1"] = df["Period_1"].values if "Period_1" in df.columns else "Kỳ 1"
+    export_df["Điểm đợt 1"] = pd.to_numeric(df["Score_Term1"], errors='coerce').fillna(0.0) if "Score_Term1" in df.columns else 0.0
+    export_df["Đợt 2"] = df["Period_2"].values if "Period_2" in df.columns else "Kỳ 2"
+    export_df["Điểm đợt 2"] = pd.to_numeric(df["Score_Term2"], errors='coerce').fillna(0.0) if "Score_Term2" in df.columns else 0.0
     
     if "Delta" in df.columns:
         export_df["Biến thiên"] = pd.to_numeric(df["Delta"], errors='coerce').fillna(0.0)
     else:
-        export_df["Biến thiên"] = export_df["Điểm đợt 2 (Kỳ 2)"] - export_df["Điểm đợt 1 (Kỳ 1)"]
+        export_df["Biến thiên"] = export_df["Điểm đợt 2"] - export_df["Điểm đợt 1"]
         
     export_df["Xu hướng EQ"] = df["Trend"].values if "Trend" in df.columns else "DUY TRÌ ÔN ĐỊNH"
     export_df["Kết luận xu hướng"] = df["Conclusion"].values if "Conclusion" in df.columns else ""
     export_df["Kế hoạch tác động tiếp theo"] = df["Plan"].values if "Plan" in df.columns else ""
-    export_df["Lớp"] = df["Class"].values if "Class" in df.columns else ""
-    export_df["Cơ sở"] = df["Campus"].values if "Campus" in df.columns else ""
-    export_df["Giáo viên"] = df["Teacher"].values if "Teacher" in df.columns else ""
     
     return export_df
 
 def calculate_class_stats(df_comp):
     if df_comp is None or df_comp.empty:
         return pd.DataFrame([
-            {"Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm DUY TRÌ (PEQ >= 3.2)", "Kỳ 1 / Tháng trước": "0.00%", "Kỳ 2 / Tháng sau": "0.00%", "Thay đổi (%)": "+0.00%"},
-            {"Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm CẦN CẢI THIỆN (2.0 <= PEQ < 3.2)", "Kỳ 1 / Tháng trước": "0.00%", "Kỳ 2 / Tháng sau": "0.00%", "Thay đổi (%)": "+0.00%"},
-            {"Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm HỖ TRỢ ĐẶC BIỆT (PEQ < 2.0)", "Kỳ 1 / Tháng trước": "0.00%", "Kỳ 2 / Tháng sau": "0.00%", "Thay đổi (%)": "+0.00%"}
+            {"Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm DUY TRÌ (PEQ >= 3.2)", "Đợt 1": "0.00%", "Đợt 2": "0.00%", "Thay đổi (%)": "+0.00%"},
+            {"Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm CẦN CẢI THIỆN (2.0 <= PEQ < 3.2)", "Đợt 1": "0.00%", "Đợt 2": "0.00%", "Thay đổi (%)": "+0.00%"},
+            {"Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm HỖ TRỢ ĐẶC BIỆT (PEQ < 2.0)", "Đợt 1": "0.00%", "Đợt 2": "0.00%", "Thay đổi (%)": "+0.00%"}
         ])
     
     total_stds = len(df_comp)
-    s1 = pd.to_numeric(df_comp["Score_Term1"], errors='coerce').fillna(0) if "Score_Term1" in df_comp.columns else pd.Series([0]*total_stds)
-    s2 = pd.to_numeric(df_comp["Score_Term2"], errors='coerce').fillna(0) if "Score_Term2" in df_comp.columns else pd.Series([0]*total_stds)
+    s1 = pd.to_numeric(df_comp["Score_Term1"], errors='coerce').fillna(0) if "Score_Term1" in df_comp.columns else pd.Series(*total_stds)
+    s2 = pd.to_numeric(df_comp["Score_Term2"], errors='coerce').fillna(0) if "Score_Term2" in df_comp.columns else pd.Series(*total_stds)
     
     duy_tri_1 = (s1 >= 3.2).sum() / total_stds * 100
     duy_tri_2 = (s2 >= 3.2).sum() / total_stds * 100
@@ -479,20 +518,20 @@ def calculate_class_stats(df_comp):
     stats_df = pd.DataFrame([
         {
             "Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm DUY TRÌ (PEQ >= 3.2)",
-            "Kỳ 1 / Tháng trước": f"{duy_tri_1:.2f}%",
-            "Kỳ 2 / Tháng sau": f"{duy_tri_2:.2f}%",
+            "Đợt 1": f"{duy_tri_1:.2f}%",
+            "Đợt 2": f"{duy_tri_2:.2f}%",
             "Thay đổi (%)": f"{duy_tri_2 - duy_tri_1:+.2f}%"
         },
         {
             "Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm CẦN CẢI THIỆN (2.0 <= PEQ < 3.2)",
-            "Kỳ 1 / Tháng trước": f"{cai_thien_1:.2f}%",
-            "Kỳ 2 / Tháng sau": f"{cai_thien_2:.2f}%",
+            "Đợt 1": f"{cai_thien_1:.2f}%",
+            "Đợt 2": f"{cai_thien_2:.2f}%",
             "Thay đổi (%)": f"{cai_thien_2 - cai_thien_1:+.2f}%"
         },
         {
             "Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm HỖ TRỢ ĐẶC BIỆT (PEQ < 2.0)",
-            "Kỳ 1 / Tháng trước": f"{ho_tro_1:.2f}%",
-            "Kỳ 2 / Tháng sau": f"{ho_tro_2:.2f}%",
+            "Đợt 1": f"{ho_tro_1:.2f}%",
+            "Đợt 2": f"{ho_tro_2:.2f}%",
             "Thay đổi (%)": f"{ho_tro_2 - ho_tro_1:+.2f}%"
         }
     ])
@@ -606,6 +645,7 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
+        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=260)
         
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
@@ -725,7 +765,7 @@ else:
             st.download_button(
                 "📥 Xuất File CSV/Excel Bảng Tổng Hợp EQ Chuẩn Mẫu",
                 df_export.to_csv(index=False).encode('utf-8-sig'),
-                "Bao_Cao_Tong_Hop_EQ_TFA.csv", "text/csv"
+                f"Bao_Cao_Tong_Hop_EQ_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
 
         elif main_menu == "📈 3. Bảng So Sánh & Xu Hướng EQ":
@@ -745,7 +785,7 @@ else:
             st.download_button(
                 "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Chuẩn Mẫu",
                 df_comp_export.to_csv(index=False).encode('utf-8-sig'),
-                "Bang_Xu_Huong_EQ_TFA.csv", "text/csv"
+                f"Bang_Xu_Huong_EQ_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
 
         else:
@@ -867,7 +907,7 @@ else:
             st.download_button(
                 "📥 Xuất File CSV/Excel Báo Cáo EQ Cơ Sở",
                 df_export.to_csv(index=False).encode('utf-8-sig'),
-                f"Bao_Cao_EQ_{my_code}.csv", "text/csv"
+                f"Bao_Cao_EQ_{my_code}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
 
         else:
@@ -887,7 +927,7 @@ else:
             st.download_button(
                 "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Cơ Sở",
                 df_comp_export.to_csv(index=False).encode('utf-8-sig'),
-                f"Bang_Xu_Huong_EQ_{my_code}.csv", "text/csv"
+                f"Bang_Xu_Huong_EQ_{my_code}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
 
     # =========================================================================
@@ -902,6 +942,9 @@ else:
             "📊 5. Báo cáo & Xuất File Lớp"
         ])
 
+        # ---------------------------------------------------------------------
+        # 1. QUẢN LÝ HỌC SINH (BỔ SUNG NOTE ĐẶC BIỆT / LƯU Ý VỀ TRẺ)
+        # ---------------------------------------------------------------------
         if main_menu == "🏫 1. Quản lý Học sinh":
             st.subheader("🏫 TỰ TẠO LỚP HỌC & QUẢN LÝ HỌC SINH")
             
@@ -921,30 +964,46 @@ else:
             st.markdown("---")
             
             with st.form(key="form_add_student", clear_on_submit=True):
-                st.markdown("##### ➕ Thêm Học Sinh Mới (Gõ tên bé xong nhấn Enter)")
-                new_student_val = st.text_input("Họ và tên học sinh mới:", key="input_new_student")
-                btn_std = st.form_submit_button("➕ Thêm Học Sinh (Hoặc nhấn Enter)")
+                st.markdown("##### ➕ Thêm Học Sinh Mới (Có ô ghi chú đặc biệt cho bé)")
+                col_std1, col_std2 = st.columns([1.8, 2.2])
+                with col_std1:
+                    new_student_val = st.text_input("Họ và tên học sinh mới:", key="input_new_student")
+                with col_std2:
+                    new_student_note = st.text_input("📌 Ghi chú đặc biệt / Lưu ý về trẻ (Trẻ đặc biệt, dị ứng, nhạy cảm tiếng ồn...):", placeholder="VD: Trẻ đặc biệt, cần hỗ trợ 1-1, dị ứng đậu hũ...", key="input_new_student_note")
+                
+                btn_std = st.form_submit_button("➕ Thêm Học Sinh Vừa Nhập (Hoặc nhấn Enter)")
                 
                 if btn_std:
                     clean_name = new_student_val.strip()
+                    clean_note = new_student_note.strip()
                     if clean_name:
-                        new_std_row = pd.DataFrame([{"teacher_user": user_key, "student_name": clean_name}])
+                        new_std_row = pd.DataFrame([{
+                            "teacher_user": user_key,
+                            "student_name": clean_name,
+                            "student_note": clean_note
+                        }])
                         st.session_state.students_df = pd.concat([st.session_state.students_df, new_std_row], ignore_index=True)
                         save_sheet_to_gas("Students", st.session_state.students_df)
-                        st.success(f"🎉 Đã lưu vĩnh viễn bé **{clean_name}** vào Google Sheet!")
+                        st.success(f"🎉 Đã lưu vĩnh viễn bé **{clean_name}** vào danh sách lớp!")
                         st.rerun()
                     else:
                         st.warning("⚠️ Vui lòng nhập họ tên học sinh!")
 
             st.markdown("---")
-            st.markdown("##### 📋 Danh Sách Học Sinh Trong Lớp (Có Nút Sửa / Xóa)")
+            st.markdown("##### 📋 Danh Sách Học Sinh Trong Lớp (Chỉnh sửa Tên & Ghi chú đặc biệt)")
             
             my_stds_df = st.session_state.students_df[st.session_state.students_df['teacher_user'] == user_key]
             if not my_stds_df.empty:
                 for idx, row in my_stds_df.iterrows():
                     s_name = row['student_name']
-                    c_s1, c_s2, c_s3 = st.columns([2.8, 1, 1])
-                    with c_s1: st.write(f"👦/👧 **{s_name}**")
+                    s_note = str(row.get('student_note', '')).strip()
+                    if pd.isna(s_note) or s_note == "nan": s_note = ""
+                    
+                    c_s1, c_s2, c_s3 = st.columns([3.2, 0.9, 0.9])
+                    with c_s1:
+                        st.write(f"👦/👧 **{s_name}**")
+                        if s_note:
+                            st.markdown(f"<span class='note-badge'>📌 Ghi chú: {s_note}</span>", unsafe_allow_html=True)
                     with c_s2:
                         if st.button("✏️ Sửa", key=f"edit_std_{idx}"):
                             st.session_state[f"editing_std_{idx}"] = not st.session_state.get(f"editing_std_{idx}", False)
@@ -957,24 +1016,31 @@ else:
                     
                     if st.session_state.get(f"editing_std_{idx}", False):
                         with st.form(key=f"form_edit_std_{idx}"):
-                            new_name_val = st.text_input("Sửa lại họ và tên (Nhấn Enter để Lưu):", value=s_name)
+                            st.markdown(f"**Chỉnh sửa thông tin bé: {s_name}**")
+                            col_es1, col_es2 = st.columns(2)
+                            with col_es1:
+                                new_name_val = st.text_input("Họ và tên:", value=s_name)
+                            with col_es2:
+                                new_note_val = st.text_input("Ghi chú đặc biệt / Lưu ý về trẻ:", value=s_note)
+                            
                             btn_save_edit = st.form_submit_button("💾 Lưu Thay Đổi (Hoặc nhấn Enter)")
                             if btn_save_edit:
                                 st.session_state.students_df.loc[idx, 'student_name'] = new_name_val.strip()
+                                st.session_state.students_df.loc[idx, 'student_note'] = new_note_val.strip()
                                 save_sheet_to_gas("Students", st.session_state.students_df)
                                 st.session_state[f"editing_std_{idx}"] = False
-                                st.success(f"🎉 Đã cập nhật tên thành **{new_name_val.strip()}**!")
+                                st.success(f"🎉 Đã cập nhật thông tin bé **{new_name_val.strip()}**!")
                                 st.rerun()
                     st.markdown("<hr style='margin: 4px 0;'>", unsafe_allow_html=True)
             else:
                 st.info("Lớp chưa có học sinh nào. Hãy nhập tên bé ở ô phía trên nhé!")
 
         # ---------------------------------------------------------------------
-        # 📝 2. NHẬT KÝ CẢM XÚC HẰNG NGÀY (GIAO DIỆN TINH GỌN, CHỈ TÍCH CẢM XÚC & BỐI CẢNH)
+        # 📝 2. NHẬT KÝ CẢM XÚC HẰNG NGÀY (BỔ SUNG GỢI Ý ĐA DẠNG & MỤC KHÁC TỰ NHẬP)
         # ---------------------------------------------------------------------
         elif main_menu == "📝 2. Nhật ký Cảm xúc Hằng ngày":
             st.subheader("📋 HỒ SƠ CẢM XÚC CÁ NHÂN (HẰNG NGÀY)")
-            st.caption("Ghi nhận cảm xúc & bối cảnh thực tế theo từng hoạt động trong ngày (Không bắt buộc chọn Mức độ gượng ép)")
+            st.caption("Ghi nhận cảm xúc & bối cảnh thực tế theo từng hoạt động trong ngày")
             
             my_stds = st.session_state.students_df[st.session_state.students_df['teacher_user'] == user_key]['student_name'].tolist()
             if not my_stds:
@@ -982,13 +1048,26 @@ else:
             else:
                 col_s1, col_s2, col_s3 = st.columns([1.5, 1.5, 1])
                 with col_s1: std_select = st.selectbox("👦/👧 Chọn học sinh:", my_stds)
-                with col_s2: log_date = st.date_input("🗓️ Ngày theo dõi:", value=datetime.today())
-                with col_s3: st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
+                with col_s2: log_date = st.date_input("🗓️ Ngày theo dõi (Ngày/Tháng/Năm):", value=datetime.today())
+                with col_s3:
+                    std_note_info = ""
+                    std_match = st.session_state.students_df[
+                        (st.session_state.students_df['teacher_user'] == user_key) & 
+                        (st.session_state.students_df['student_name'] == std_select)
+                    ]
+                    if not std_match.empty:
+                        std_note_info = str(std_match.iloc.get('student_note', '')).strip()
+                        if std_note_info and std_note_info != "nan":
+                            st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**\n\n📌 **Lưu ý trẻ:** {std_note_info}")
+                        else:
+                            st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
+                    else:
+                        st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
                 
                 dynamic_prefix = f"{std_select}_{log_date}"
                 
                 st.markdown("---")
-                st.markdown("#### 1. Hoạt động trong ngày (Chỉ cần tích chọn cảm xúc & gõ ghi chú nếu có tình huống)")
+                st.markdown("#### 1. Hoạt động trong ngày (Tích chọn cảm xúc & gõ ghi chú bối cảnh nếu có)")
                 
                 init_routines_data = []
                 for r in TFA_ROUTINES:
@@ -1036,14 +1115,24 @@ else:
                     st.markdown("---")
                     col_d1, col_d2 = st.columns(2)
                     with col_d1:
-                        daily_trend = st.selectbox("📈 Xu hướng cảm xúc chung trong ngày:", [
+                        daily_trend_options = [
                             "Duy trì cảm xúc tích cực, vui vẻ cả ngày",
                             "Có xáo trộn nhỏ ở đầu ngày, nhanh chóng cân bằng",
+                            "Tự tin, hào hứng tham gia các hoạt động nhóm",
+                            "Hơi thu mình, rụt rè nhưng hợp tác khi cô khuyến khích",
+                            "Dễ kích động, cần cô hỗ trợ xoa dịu và theo dõi sát",
                             "Cần sự can thiệp và hỗ trợ dỗ dành nhiều từ cô",
-                            "Cần lưu ý đặc biệt / Có biểu hiện bùng nổ cảm xúc"
-                        ], key=f"trend_{dynamic_prefix}")
+                            "Cần lưu ý đặc biệt / Có biểu hiện bùng nổ cảm xúc",
+                            "Khác (Tự nhập nhận xét riêng...)"
+                        ]
+                        sel_trend = st.selectbox("📈 Xu hướng cảm xúc chung trong ngày:", daily_trend_options, key=f"trend_sel_{dynamic_prefix}")
+                        
+                        custom_trend_text = ""
+                        if sel_trend == "Khác (Tự nhập nhận xét riêng...)":
+                            custom_trend_text = st.text_input("✍️ Nhập xu hướng / nhận xét riêng của cô:", placeholder="Gõ đánh giá xu hướng riêng cho bé trong ngày...", key=f"custom_trend_{dynamic_prefix}")
+                            
                     with col_d2:
-                        daily_summary = st.text_area("💬 Nhận xét tự do của giáo viên:", placeholder="Cô tự do gõ nhận xét hoặc lưu ý cá nhân về bé trong ngày...", key=f"summary_{dynamic_prefix}")
+                        daily_summary = st.text_area("💬 Nhận xét bổ sung của giáo viên:", placeholder="Cô tự do gõ nhận xét hoặc lưu ý cá nhân thêm về bé...", key=f"summary_{dynamic_prefix}")
                     
                     st.write("")
                     btn_save_daily = st.form_submit_button("💾 LƯU HỒ SƠ CẢM XÚC HẰNG NGÀY (HOẶC NHẤN ENTER)")
@@ -1069,23 +1158,25 @@ else:
                         full_emotions_str = " | ".join(emotions_summary_list) if emotions_summary_list else "Bình thường ở tất cả hoạt động"
                         json_str = json.dumps(details_dict, ensure_ascii=False)
                         
+                        final_trend_str = custom_trend_text.strip() if sel_trend == "Khác (Tự nhập nhận xét riêng...)" and custom_trend_text.strip() else sel_trend
+                        
                         new_log = pd.DataFrame([{
                             "Teacher": user_info['name'],
                             "Campus": user_info['campus'],
                             "Class": user_info.get('class_name', 'Pre-school (3-4 tuổi)'),
                             "Student": std_select,
-                            "Date": str(log_date),
+                            "Date": log_date.strftime("%d/%m/%Y"),
                             "Routine": "Toàn bộ hoạt động trong ngày",
                             "Emotions": full_emotions_str,
                             "Note": note_context,
                             "Intervention": note_intervention,
-                            "Summary": f"[{daily_trend}] {daily_summary}",
+                            "Summary": f"[{final_trend_str}] {daily_summary}",
                             "Details_JSON": json_str
                         }])
                         
                         st.session_state.daily_logs_df = pd.concat([st.session_state.daily_logs_df, new_log], ignore_index=True)
                         save_sheet_to_gas("DailyLogs", st.session_state.daily_logs_df)
-                        st.success(f"🎉 Đã lưu vĩnh viễn Hồ sơ cảm xúc ngày {log_date} cho bé **{std_select}** lên Google Sheets!")
+                        st.success(f"🎉 Đã lưu vĩnh viễn Hồ sơ cảm xúc ngày {log_date.strftime('%d/%m/%Y')} cho bé **{std_select}** lên Google Sheets!")
                         st.rerun()
 
             st.markdown("---")
@@ -1097,30 +1188,35 @@ else:
                 st.info("Chưa có hồ sơ cảm xúc hằng ngày nào được lưu.")
 
         # ---------------------------------------------------------------------
-        # 🎯 3. ĐÁNH GIÁ EQ 6 TIÊU CHÍ (CÓ MA TRẬN NHẶT TỰ ĐỘNG 1-CLICK TỪ NHẬT KÝ)
+        # 🎯 3. ĐÁNH GIÁ EQ 6 TIÊU CHÍ (BỔ SUNG BÁO CÁO NGÀY THÁNG & NÚT XUẤT FILE RIÊNG)
         # ---------------------------------------------------------------------
         elif main_menu == "🎯 3. Đánh giá EQ 6 Tiêu chí":
-            st.subheader("🎯 ĐÁNH GIÁ EQ 6 TIÊU CHÍ (CÓ MA TRẬN NHẶT TỰ ĐỘNG THÔNG MINH)")
-            st.caption("Cô chỉ cần tích chọn cảm xúc hằng ngày ➔ Bấm nút '⚡ TỰ ĐỘNG TỔNG HỢP' là hệ thống tự nhặt minh chứng & gợi ý điểm vào đúng 6 tiêu chí!")
+            st.subheader("🎯 ĐÁNH GIÁ EQ 6 TIÊU CHÍ (CÓ FILE XUẤT RIÊNG & NGÀY THÁNG ĐẦY ĐỦ)")
+            st.caption("Đánh giá định kỳ theo đúng Bộ Tiêu Chí EQ của TFA — Có thể xuất phiếu báo cáo riêng từng bé hoặc toàn lớp")
             
             my_stds = st.session_state.students_df[st.session_state.students_df['teacher_user'] == user_key]['student_name'].tolist()
             if not my_stds: st.warning("⚠️ Lớp bạn chưa có học sinh.")
             else:
-                col_e1, col_e2, col_e3 = st.columns([1.5, 1.5, 1.2])
+                col_e1, col_e2, col_e3, col_e4 = st.columns([1.5, 1.2, 1.2, 1.2])
                 with col_e1: std_eval = st.selectbox("Chọn học sinh:", my_stds)
-                with col_e2: 
+                with col_e2: eval_school_year = st.selectbox("Năm học:", SCHOOL_YEAR_OPTIONS, index=1)
+                with col_e3: 
                     eval_month = st.selectbox("Chọn Tháng đánh giá:", [f"Tháng {m}" for m in range(1, 13)], index=8)
-                    term = f"{eval_month} / Kỳ {1 if int(eval_month.replace('Tháng ', '')) <= 6 else 2}"
-                with col_e3:
-                    user_class_str = user_info.get('class_name', 'Kindergarten (4-5 tuổi)')
-                    if "Pre-school" in user_class_str or "3-4" in user_class_str:
-                        curr_age_group = "Pre-school (3-4 tuổi)"
-                    elif "Pre-primary" in user_class_str or "5-6" in user_class_str:
-                        curr_age_group = "Pre-primary (5-6 tuổi)"
-                    else:
-                        curr_age_group = "Kindergarten (4-5 tuổi)"
+                    m_num = int(eval_month.replace('Tháng ', ''))
+                    term = f"{eval_month} / Kỳ {1 if (m_num >= 9 or m_num <= 12) and m_num != 1 and m_num != 2 and m_num != 3 and m_num != 4 and m_num != 5 else 2}"
+                with col_e4:
+                    eval_date_val = st.date_input("🗓️ Ngày đánh giá:", value=datetime.today(), key=f"eval_date_{std_eval}")
+                    eval_date_str = eval_date_val.strftime("%d/%m/%Y")
                     
-                    st.success(f"📘 Bộ tiêu chí: **{curr_age_group}**")
+                user_class_str = user_info.get('class_name', 'Kindergarten (4-5 tuổi)')
+                if "Pre-school" in user_class_str or "3-4" in user_class_str:
+                    curr_age_group = "Pre-school (3-4 tuổi)"
+                elif "Pre-primary" in user_class_str or "5-6" in user_class_str:
+                    curr_age_group = "Pre-primary (5-6 tuổi)"
+                else:
+                    curr_age_group = "Kindergarten (4-5 tuổi)"
+                
+                st.info(f"📘 Bộ tiêu chí: **{curr_age_group}** | 📅 Ngày đánh giá: **{eval_date_str}** | 🏫 Năm học: **{eval_school_year}**")
                 
                 # --- NÚT 1-CLICK TỰ ĐỘNG NHẶT MINH CHỨNG & ĐIỀN ĐIỂM ---
                 st.markdown("---")
@@ -1141,7 +1237,7 @@ else:
                         st.warning(f"⚠️ Chưa tìm thấy nhật ký hằng ngày của bé {std_eval}. Đang dùng mức mặc định chuẩn lứa tuổi!")
 
                 # --- TRỢ LÝ MINH CHỨNG TỔNG HỢP TỪ NHẬT KÝ CẢM XÚC THÁNG ---
-                with st.expander(f"🔍 TRỢ LÝ MINH CHỨNG CẢM XÚC THÁNG CỦA BÉ {std_eval.upper()} (TỰ ĐỘNG GOM TỪ NHẬT KÝ HẰNG NGÀY)", expanded=True):
+                with st.expander(f"🔍 TRỢ LÝ MINH CHỨNG CẢM XÚC THÁNG CỦA BÉ {std_eval.upper()} (TỰ ĐỘNG GOM TỪ NHẬT KÝ HẰNG NGÀY)", expanded=False):
                     std_logs = st.session_state.daily_logs_df[
                         (st.session_state.daily_logs_df['Student'] == std_eval) & 
                         (st.session_state.daily_logs_df['Teacher'] == user_info['name'])
@@ -1168,7 +1264,6 @@ else:
 
                 st.markdown("---")
                 st.markdown(f"#### 📝 BẢNG ĐÁNH GIÁ 6 TIÊU CHÍ EQ NHÓM {curr_age_group.upper()}")
-                st.caption("Hệ thống tự điền theo gợi ý từ nhật ký hoặc Cô có thể tự tay điều chỉnh lại theo thực tế")
                 
                 curr_crit_map = CRITERIA_DATA.get(curr_age_group, CRITERIA_DATA["Kindergarten (4-5 tuổi)"])
                 
@@ -1183,28 +1278,28 @@ else:
                 
                 with col_c1:
                     st.markdown("##### 1. TC1: Nhận biết cảm xúc bản thân")
-                    tc1_val = st.radio("Chọn Mức cho TC1:", [1, 2, 3, 4], index=def_tc1-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc1_{std_eval}", horizontal=True)
+                    tc1_val = st.radio("Chọn Mức cho TC1:", [7-10], index=def_tc1-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc1_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC1'][tc1_val]}")
                     
                     st.markdown("##### 2. TC2: Gọi tên và diễn đạt cảm xúc")
-                    tc2_val = st.radio("Chọn Mức cho TC2:", [1, 2, 3, 4], index=def_tc2-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc2_{std_eval}", horizontal=True)
+                    tc2_val = st.radio("Chọn Mức cho TC2:", [7-10], index=def_tc2-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc2_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC2'][tc2_val]}")
                     
                     st.markdown("##### 3. TC3: Điều chỉnh và kiểm soát cảm xúc")
-                    tc3_val = st.radio("Chọn Mức cho TC3:", [1, 2, 3, 4], index=def_tc3-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc3_{std_eval}", horizontal=True)
+                    tc3_val = st.radio("Chọn Mức cho TC3:", [7-10], index=def_tc3-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc3_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC3'][tc3_val]}")
 
                 with col_c2:
                     st.markdown("##### 4. TC4: Đồng cảm và quan hệ xã hội")
-                    tc4_val = st.radio("Chọn Mức cho TC4:", [1, 2, 3, 4], index=def_tc4-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc4_{std_eval}", horizontal=True)
+                    tc4_val = st.radio("Chọn Mức cho TC4:", [7-10], index=def_tc4-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc4_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC4'][tc4_val]}")
                     
                     st.markdown("##### 5. TC5: Ảnh hưởng môi trường đến cảm xúc")
-                    tc5_val = st.radio("Chọn Mức cho TC5:", [1, 2, 3, 4], index=def_tc5-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc5_{std_eval}", horizontal=True)
+                    tc5_val = st.radio("Chọn Mức cho TC5:", [7-10], index=def_tc5-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc5_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC5'][tc5_val]}")
                     
                     st.markdown("##### 6. TC6: Phản ứng khi cảm xúc được công nhận")
-                    tc6_val = st.radio("Chọn Mức cho TC6:", [1, 2, 3, 4], index=def_tc6-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc6_{std_eval}", horizontal=True)
+                    tc6_val = st.radio("Chọn Mức cho TC6:", [7-10], index=def_tc6-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc6_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC6'][tc6_val]}")
 
                 peq = round((tc1_val + tc2_val + tc3_val + tc4_val + tc5_val + tc6_val) / 6.0, 2)
@@ -1225,62 +1320,137 @@ else:
                 conclusion_input = st.text_area("Kết luận xu hướng phát triển:", value=def_cnc, key=f"conclusion_area_{std_eval}")
                 plan_input = st.text_area("Kế hoạch tác động tiếp theo:", value=def_pln, key=f"plan_area_{std_eval}")
                 
-                if st.button("💾 Lưu Bảng Đánh Giá EQ (Lên Google Sheets)"):
-                    new_eval = pd.DataFrame([{
+                col_save_btn, col_exp_btn = st.columns([1.5, 1.5])
+                
+                with col_save_btn:
+                    if st.button("💾 Lưu Bảng Đánh Giá EQ Lên Google Sheets"):
+                        new_eval = pd.DataFrame([{
+                            "Teacher": user_info['name'], "Campus": user_info['campus'],
+                            "Class": user_info.get('class_name', curr_age_group), "Student": std_eval,
+                            "School_Year": eval_school_year, "Term": term, "Eval_Date": eval_date_str,
+                            "TC1": tc1_val, "TC2": tc2_val, "TC3": tc3_val, "TC4": tc4_val, "TC5": tc5_val, "TC6": tc6_val,
+                            "P_EQ": peq, "Group_Clean": group_clean,
+                            "Context": context_input, "Conclusion": conclusion_input, "Plan": plan_input
+                        }])
+                        st.session_state.evaluations_df = pd.concat([st.session_state.evaluations_df, new_eval], ignore_index=True)
+                        save_sheet_to_gas("Evaluations", st.session_state.evaluations_df)
+                        st.success(f"🎉 Đã lưu vĩnh viễn đánh giá EQ ngày {eval_date_str} cho bé **{std_eval}**!")
+                        st.rerun()
+
+                # --- MỤC 3: XUẤT FILE BÁO CÁO ĐÁNH GIÁ EQ CÁ NHÂN VÀ TOÀN LỚP ---
+                with col_exp_btn:
+                    single_eval_df = pd.DataFrame([{
                         "Teacher": user_info['name'], "Campus": user_info['campus'],
-                        "Class": user_info.get('class_name', curr_age_group), "Student": std_eval, "Term": term,
+                        "Class": user_info.get('class_name', curr_age_group), "Student": std_eval,
+                        "School_Year": eval_school_year, "Term": term, "Eval_Date": eval_date_str,
                         "TC1": tc1_val, "TC2": tc2_val, "TC3": tc3_val, "TC4": tc4_val, "TC5": tc5_val, "TC6": tc6_val,
                         "P_EQ": peq, "Group_Clean": group_clean,
                         "Context": context_input, "Conclusion": conclusion_input, "Plan": plan_input
                     }])
-                    st.session_state.evaluations_df = pd.concat([st.session_state.evaluations_df, new_eval], ignore_index=True)
-                    save_sheet_to_gas("Evaluations", st.session_state.evaluations_df)
-                    st.success(f"🎉 Đã lưu vĩnh viễn đánh giá EQ cho bé **{std_eval}** lên Google Sheets!")
-                    st.rerun()
+                    single_export = format_evaluations_export(single_eval_df)
+                    st.download_button(
+                        f"📄 Xuất Phiếu Đánh Giá EQ Riêng Cho Bé {std_eval}",
+                        single_export.to_csv(index=False).encode('utf-8-sig'),
+                        f"Phieu_Danh_Gia_EQ_{std_eval}_{eval_date_val.strftime('%Y%m%d')}.csv",
+                        "text/csv"
+                    )
 
         # ---------------------------------------------------------------------
-        # 📈 4. BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ (SO SÁNH 2 ĐỢT/THÁNG)
+        # 📈 4. BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ (KỲ 1/2 HOẶC SO SÁNH GIỮA CÁC THÁNG, CÓ NĂM HỌC & NGÀY THÁNG)
         # ---------------------------------------------------------------------
         elif main_menu == "📈 4. Bảng So Sánh & Xu Hướng EQ":
             st.subheader("📈 BẢNG SO SÁNH & XÁC NHẬN XU HƯỚNG PHÁT TRIỂN EQ")
-            st.caption("Thiết kế theo chuẩn 'Bảng Xu Hướng Phát Triển EQ Của Trẻ' (So sánh 2 đợt/tháng)")
+            st.caption("Cho phép so sánh giữa 2 Kỳ (Tháng 9-12 vs Tháng 1-5) hoặc So sánh giữa các Tháng bất kỳ trong Năm học")
             
             my_stds = st.session_state.students_df[st.session_state.students_df['teacher_user'] == user_key]['student_name'].tolist()
             if not my_stds:
                 st.warning("⚠️ Lớp bạn chưa có học sinh. Vui lòng thêm học sinh trước!")
             else:
-                std_comp = st.selectbox("👦/👧 Chọn học sinh cần so sánh:", my_stds)
+                col_cmp_hdr1, col_cmp_hdr2, col_cmp_hdr3 = st.columns([1.5, 1.2, 1.3])
+                with col_cmp_hdr1:
+                    std_comp = st.selectbox("👦/👧 Chọn học sinh cần so sánh:", my_stds)
+                with col_cmp_hdr2:
+                    comp_school_year = st.selectbox("Năm học:", SCHOOL_YEAR_OPTIONS, index=1, key="comp_school_year")
+                with col_cmp_hdr3:
+                    comp_date_val = st.date_input("🗓️ Ngày lập so sánh:", value=datetime.today(), key="comp_date_input")
+                    comp_date_str = comp_date_val.strftime("%d/%m/%Y")
+                    
+                comp_type = st.radio(
+                    "📌 Chọn hình thức so sánh:",
+                    ["So sánh 2 Kỳ (Kỳ 1: T9-12 vs Kỳ 2: T1-5)", "So sánh giữa 2 Tháng bất kỳ"],
+                    horizontal=True
+                )
                 
                 col_cmp1, col_cmp2, col_cmp3 = st.columns(3)
+                
+                if "So sánh 2 Kỳ" in comp_type:
+                    period_1_label = "Kỳ 1 (Tháng 9 - 12 / Đầu năm học)"
+                    period_2_label = "Kỳ 2 (Tháng 1 - 5 / Cuối năm học)"
+                else:
+                    month_list = [f"Tháng {m}" for m in range(1, 13)]
+                    with col_cmp1:
+                        sel_m1 = st.selectbox("Chọn Đợt 1 (Tháng trước):", month_list, index=0)
+                        period_1_label = f"{sel_m1}"
+                    with col_cmp2:
+                        sel_m2 = st.selectbox("Chọn Đợt 2 (Tháng sau):", month_list, index=1)
+                        period_2_label = f"{sel_m2}"
+                        
                 with col_cmp1:
-                    score_t1 = st.number_input("Điểm Đợt 1 (Kỳ 1 / Tháng trước):", min_value=1.0, max_value=4.0, value=2.2, step=0.1)
+                    score_t1 = st.number_input(f"Điểm {period_1_label}:", min_value=1.0, max_value=4.0, value=2.2, step=0.1, key="score_t1_input")
                 with col_cmp2:
-                    score_t2 = st.number_input("Điểm Đợt 2 (Kỳ 2 / Tháng sau):", min_value=1.0, max_value=4.0, value=3.0, step=0.1)
+                    score_t2 = st.number_input(f"Điểm {period_2_label}:", min_value=1.0, max_value=4.0, value=3.0, step=0.1, key="score_t2_input")
                 with col_cmp3:
                     delta_score = round(score_t2 - score_t1, 2)
                     trend_tag = "TIẾN BỘ VƯỢT BẬC" if delta_score >= 0.5 else ("TIẾN BỘ" if delta_score > 0 else ("DUY TRÌ ÔN ĐỊNH" if delta_score == 0 else "CẦN LƯU Ý (THỤT LÙI)"))
                     st.metric("Biến thiên (Delta):", f"{delta_score:+.2f}", delta=trend_tag)
                 
-                c_input = st.text_area("Kết luận xu hướng:", value=f"Bé {std_comp} có xu hướng {trend_tag.lower()}...", key="comp_c_area")
+                st.info(f"📅 Ngày thực hiện: **{comp_date_str}** | 🏫 Năm học: **{comp_school_year}** | 📊 Loại: **{comp_type}**")
+                
+                c_input = st.text_area("Kết luận xu hướng:", value=f"Bé {std_comp} có xu hướng {trend_tag.lower()} trong {comp_school_year}...", key="comp_c_area")
                 p_input = st.text_area("Kế hoạch tác động tiếp theo:", value=f"Tiếp tục đồng hành hỗ trợ bé {std_comp}...", key="comp_p_area")
                 
-                if st.button("💾 Lưu Bảng So Sánh Xu Hướng EQ (Lên Google Sheets)"):
-                    st.session_state.comparisons_df = st.session_state.comparisons_df[
-                        ~((st.session_state.comparisons_df['Teacher'] == user_info['name']) & (st.session_state.comparisons_df['Student'] == std_comp))
-                    ]
-                    
-                    new_comp = pd.DataFrame([{
+                col_save_cmp, col_exp_cmp = st.columns([1.5, 1.5])
+                
+                with col_save_cmp:
+                    if st.button("💾 Lưu Bảng So Sánh Xu Hướng EQ (Lên Google Sheets)"):
+                        st.session_state.comparisons_df = st.session_state.comparisons_df[
+                            ~((st.session_state.comparisons_df['Teacher'] == user_info['name']) & (st.session_state.comparisons_df['Student'] == std_comp))
+                        ]
+                        
+                        new_comp = pd.DataFrame([{
+                            "Teacher": user_info['name'], "Campus": user_info['campus'],
+                            "Class": user_info.get('class_name', 'Mầm'), "Student": std_comp,
+                            "School_Year": comp_school_year, "Comp_Type": comp_type,
+                            "Period_1": period_1_label, "Period_2": period_2_label,
+                            "Score_Term1": score_t1, "Score_Term2": score_t2,
+                            "Delta": delta_score, "Trend": trend_tag,
+                            "Conclusion": c_input, "Plan": p_input,
+                            "Comp_Date": comp_date_str
+                        }])
+                        
+                        st.session_state.comparisons_df = pd.concat([st.session_state.comparisons_df, new_comp], ignore_index=True)
+                        save_sheet_to_gas("Comparisons", st.session_state.comparisons_df)
+                        st.success(f"🎉 Đã lưu vĩnh viễn dữ liệu so sánh xu hướng cho bé **{std_comp}**!")
+                        st.rerun()
+
+                with col_exp_cmp:
+                    single_comp_df = pd.DataFrame([{
                         "Teacher": user_info['name'], "Campus": user_info['campus'],
                         "Class": user_info.get('class_name', 'Mầm'), "Student": std_comp,
+                        "School_Year": comp_school_year, "Comp_Type": comp_type,
+                        "Period_1": period_1_label, "Period_2": period_2_label,
                         "Score_Term1": score_t1, "Score_Term2": score_t2,
                         "Delta": delta_score, "Trend": trend_tag,
-                        "Conclusion": c_input, "Plan": p_input
+                        "Conclusion": c_input, "Plan": p_input,
+                        "Comp_Date": comp_date_str
                     }])
-                    
-                    st.session_state.comparisons_df = pd.concat([st.session_state.comparisons_df, new_comp], ignore_index=True)
-                    save_sheet_to_gas("Comparisons", st.session_state.comparisons_df)
-                    st.success(f"🎉 Đã lưu vĩnh viễn dữ liệu so sánh xu hướng cho bé **{std_comp}** lên Google Sheets!")
-                    st.rerun()
+                    single_comp_exp = format_comparisons_export(single_comp_df)
+                    st.download_button(
+                        f"📄 Xuất Báo Cáo Xu Hướng EQ Riêng Cho Bé {std_comp}",
+                        single_comp_exp.to_csv(index=False).encode('utf-8-sig'),
+                        f"Bao_Cao_Xu_Huong_EQ_{std_comp}_{comp_date_val.strftime('%Y%m%d')}.csv",
+                        "text/csv"
+                    )
 
             st.markdown("---")
             st.markdown("##### 📋 DỮ LIỆU SO SÁNH XU HƯỚNG HIỆN CÓ CỦA LỚP")
@@ -1288,16 +1458,16 @@ else:
             df_comp_exp = format_comparisons_export(my_comps)
             st.dataframe(df_comp_exp, use_container_width=True)
             
-            st.markdown("##### 📊 THỐNG KÊ TỈ LỆ % PHÂN BỔ TOÀN LỚP (KỲ 1 VS KỲ 2)")
+            st.markdown("##### 📊 THỐNG KÊ TỈ LỆ % PHÂN BỔ TOÀN LỚP (ĐỢT 1 VS ĐỢT 2)")
             st.table(calculate_class_stats(my_comps))
 
         # ---------------------------------------------------------------------
-        # 📊 5. BÁO CÁO & XUẤT FILE LỚP (EXCEL / CSV CHUẨN CỘT MẪU)
+        # 📊 5. BÁO CÁO & XUẤT FILE LỚP (EXCEL / CSV CÓ NGÀY THÁNG NĂM CHUẨN CỘT MẪU)
         # ---------------------------------------------------------------------
         else:
-            st.subheader("📊 BÁO CÁO TỔNG HỢP & XUẤT FILE ĐÁNH GIÁ EQ CỦA LỚP")
+            st.subheader("📊 BÁO CÁO TỔNG HỢP & XUẤT FILE ĐÁNH GIÁ EQ CỦA LỚP (CÓ NGÀY THÁNG ĐẦY ĐỦ)")
             
-            tab_rep1, tab_rep2 = st.tabs(["📋 1. Bảng Kết Quả Đánh Giá EQ (6 Tiêu Chí)", "📈 2. Bảng So Sánh Xu Hướng EQ (2 Kỳ)"])
+            tab_rep1, tab_rep2 = st.tabs(["📋 1. Bảng Kết Quả Đánh Giá EQ (6 Tiêu Chí)", "📈 2. Bảng So Sánh Xu Hướng EQ (2 Kỳ / Tháng)"])
             
             with tab_rep1:
                 my_evals = st.session_state.evaluations_df[st.session_state.evaluations_df['Teacher'] == user_info['name']] if not st.session_state.evaluations_df.empty else pd.DataFrame()
@@ -1310,9 +1480,9 @@ else:
                     st.info("ℹ️ Lớp chưa có dữ liệu đánh giá EQ chính thức. Bạn vẫn có thể tải Khung Báo Cáo Mẫu (.csv) bên dưới.")
                     
                 st.download_button(
-                    "📥 XUẤT FILE EXCEL/CSV BẢNG TỔNG HỢP EQ CHUẨN MẪU",
+                    "📥 XUẤT FILE EXCEL/CSV BẢNG TỔNG HỢP EQ TOÀN LỚP CHUẨN MẪU",
                     df_eval_export.to_csv(index=False).encode('utf-8-sig'),
-                    f"Bang_Tong_Hop_EQ_Lop_{user_info.get('class_name', '')}.csv",
+                    f"Bang_Tong_Hop_EQ_Lop_{user_info.get('class_name', '')}_{datetime.today().strftime('%Y%m%d')}.csv",
                     "text/csv"
                 )
 
@@ -1330,8 +1500,8 @@ else:
                     st.info("ℹ️ Lớp chưa có dữ liệu so sánh xu hướng EQ. Bạn vẫn có thể tải Khung Báo Cáo Mẫu (.csv) bên dưới.")
                     
                 st.download_button(
-                    "📥 XUẤT FILE EXCEL/CSV BẢNG XU HƯỚNG EQ CHUẨN MẪU",
+                    "📥 XUẤT FILE EXCEL/CSV BẢNG XU HƯỚNG EQ TOÀN LỚP CHUẨN MẪU",
                     df_comp_export.to_csv(index=False).encode('utf-8-sig'),
-                    f"Bang_Xu_Huong_EQ_Lop_{user_info.get('class_name', '')}.csv",
+                    f"Bang_Xu_Huong_EQ_Lop_{user_info.get('class_name', '')}_{datetime.today().strftime('%Y%m%d')}.csv",
                     "text/csv"
                 )
