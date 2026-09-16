@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 TỰ ĐỘNG KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL CỦA BẠN
 # -----------------------------------------------------------------------------
-GAS_URL = "https://script.google.com/macros/s/AKfycbwberqVIUJFxysiahO69QJT_3AJn2YDmrTvzUzdyC21sI_QbR0B-Xrz3mRD-Yo0vdDIkw/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbwQ6Yw7OcutvMq9p6xNQOUuaAVgZByVubJ6t7sknDwpniDyx4xzrYsxVMQebzIYHyxFpA/exec"
 
 # -----------------------------------------------------------------------------
 # 1. CẤU HÌNH TRANG & GIAO DIỆN VÀNG - TRẮNG - XÁM (TFA BRAND)
