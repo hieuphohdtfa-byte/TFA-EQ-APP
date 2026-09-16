@@ -1,5 +1,3 @@
-import streamlit as st
-import pandas as pd
 import requests
 import os
 import json
@@ -8,9 +6,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # -----------------------------------------------------------------------------
-# 🔗 TỰ ĐỘNG KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL CỦA BẠN
+# 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL MỚI CỦA BẠN
 # -----------------------------------------------------------------------------
-GAS_URL = "https://script.google.com/macros/s/AKfycbwQ6Yw7OcutvMq9p6xNQOUuaAVgZByVubJ6t7sknDwpniDyx4xzrYsxVMQebzIYHyxFpA/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbyLmKWVgiMnLk94OL1bjAVROT0jl-JhplqFmm1jpvIJMqZnUfzJUirRQMfyJsjgX34cPQ/exec"
 
 # -----------------------------------------------------------------------------
 # 1. CẤU HÌNH TRANG & GIAO DIỆN VÀNG - TRẮNG - XÁM (TFA BRAND)
@@ -84,11 +82,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. KHỜI TẠO CẤU TRÚC KHỐI LỚP & BỘ TIÊU CHÍ EQ 3 NHÓM TUỔI
+# 2. BỘ TIÊU CHÍ EQ NGUYÊN BẢN 100% CHO CẢ 3 KHỐI LỚP (TỪ FILE 2. BỘ TIÊU CHÍ EQ)
 # -----------------------------------------------------------------------------
 CAMPUS_MAP = {
     "HD": "Cơ sở TFA Hà Đô (Phường Cát Lái, TP.HCM)",
-    "HL": "Cơ sở TFA Him Lam (Phường Tân Hưng, Quận 7, TP.HCM)",
+    "HL": "Cơ sở TFA Him Lam (Phường Tân Hưng, TP.HCM)",
     "DBM": "Cơ sở TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)",
     "LVS": "Cơ sở TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)",
     "TTL": "Cơ sở TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)"
@@ -102,130 +100,239 @@ TFA_ROUTINES = [
 ]
 EMOTION_COLS = ["Vui 😊", "Buồn 😢", "Giận 😡", "Yêu thương 🥰", "Hào hứng 🤩", "Lo lắng 😮‍💨", "Tự hào 🌟"]
 LEVEL_OPTIONS = [
-    "Mức 3 - Tự cân bằng khi cô nhắc",
-    "Mức 1 - Bùng nổ / Ăn vạ / Khóc >5p",
-    "Mức 2 - Cần cô dỗ dành / Can thiệp",
-    "Mức 4 - Tự chủ / Tự tìm góc bình tĩnh"
+    "Mức 3 - Tự nhận biết / Tự cân bằng khi cô nhắc",
+    "Mức 1 - Bộc phát / Chưa nhận thức (Khóc, ăn vạ, la hét >5p)",
+    "Mức 2 - Nhận biết có điều kiện / Cần cô dỗ dành, can thiệp",
+    "Mức 4 - Chủ động và ổn định / Tự quản trị"
 ]
 
 LOGO_FILE = "logo.png" if os.path.exists("logo.png") else ("Logo TFA Ver2.1 .png" if os.path.exists("Logo TFA Ver2.1 .png") else "logo.png")
 
+# GIỮ NGUYÊN 100% NỘI DUNG NGUYÊN BẢN TỪ DOCUMENT "2. BỘ TIÊU CHÍ EQ CỦA TRẺ.DOCX"
 CRITERIA_DATA = {
     "Pre-school (3-4 tuổi)": {
         "TC1": {
-            1: "Mức 1: Khóc, ăn vạ, bùng nổ cảm xúc mà chưa nhận biết được vì sao mình khó chịu.",
-            2: "Mức 2: Nhận biết được cảm xúc khi được cô gọi tên và xoa dịu.",
-            3: "Mức 3: Tự nói được mình vui, buồn, sợ khi cô gợi hỏi nhẹ nhàng.",
-            4: "Mức 4: Chủ động nói với cô/bạn về cảm xúc của mình (VD: 'Con sợ', 'Con vui')."
+            1: "Mức 1: Khóc/giận/vui nhưng không biết vì sao, không có sự kết nối giữa hành động và suy nghĩ.",
+            2: "Mức 2: Trẻ chỉ nhận diện được khi cô đặt câu hỏi xác nhận trực tiếp. Trả lời khi cô hỏi: 'Con đang buồn à?', 'Con thích nó à?'",
+            3: "Mức 3: Trẻ tự dùng từ đơn để thông báo trạng thái mà không cần cô hỏi trước. Tự nói: 'Con buồn', 'Không thích', 'Vui lắm'.",
+            4: "Mức 4: Tự nhận ra sớm trước khi bộc phát. Trẻ có dấu hiệu nhận ra cảm xúc từ sớm (trước khi bùng nổ) và thể hiện ra bên ngoài để tìm kiếm sự hỗ trợ, chia sẻ."
         },
         "TC2": {
-            1: "Mức 1: Phản ứng thuần túy bằng tiếng khóc, la hét hoặc hành vi cơ thể.",
-            2: "Mức 2: Dùng 1 từ đơn để gọi tên cảm xúc (VD: 'Sợ', 'Buồn', 'Giận').",
-            3: "Mức 3: Nói được câu ngắn diễn đạt cảm xúc (VD: 'Con buồn lắm').",
-            4: "Mức 4: Diễn đạt được cảm xúc kèm lý do đơn giản (VD: 'Con buồn vì bạn giành đồ')."
+            1: "Mức 1: Trẻ chỉ biểu đạt cảm xúc thuần túy qua các phản ứng sinh lý và xung năng (khóc, cười, la hét) mà chưa có sự kết nối với ngôn ngữ.",
+            2: "Mức 2: Trẻ sử dụng từ vựng cảm xúc đơn lẻ, nói 1 từ đơn ('Giận', 'Buồn', 'Vui') để gọi tên trạng thái khi được gợi ý hoặc tự thân.",
+            3: "Mức 3: Trẻ có khả năng nói câu đơn giản để định danh cảm xúc ('Con sợ quá' hoặc 'Con buồn', 'Con vui lắm').",
+            4: "Mức 4: Trẻ diễn đạt + chỉ ra nguyên nhân bằng ngôn ngữ logic sơ khai."
         },
         "TC3": {
-            1: "Mức 1: Bùng nổ cảm xúc >5 phút, khóc ăn vạ kéo dài, khó dỗ.",
-            2: "Mức 2: Bình tĩnh lại khi được cô ôm, xoa lưng hoặc dỗ dành trực tiếp.",
-            3: "Mức 3: Tự dừng khóc / dịu lại khi cô nhắc nhở nhẹ nhàng.",
-            4: "Mức 4: Tự biết tìm góc bình tĩnh hoặc lấy gối ôm để tự trấn an."
+            1: "Mức 1: Phản ứng tiêu cực kéo dài, ăn vạ, ném đồ/yêu thích quá độ > 5 phút và khó bị tác động bởi lời nói của giáo viên.",
+            2: "Mức 2: Trẻ bình tĩnh lại khi có sự can thiệp trực tiếp như dừng khi cô ôm/trấn an.",
+            3: "Mức 3: Trẻ nghe theo hướng dẫn, nhắc nhở nhẹ nhàng điều chỉnh của cô để tự lấy lại bình tĩnh.",
+            4: "Mức 4: Trẻ biết tự tìm các 'điểm tự an toàn', tự tìm góc bình tĩnh không cần cô can thiệp."
         },
         "TC4": {
-            1: "Mức 1: Thờ ơ, không quan tâm khi bạn bên cạnh khóc hay buồn.",
-            2: "Mức 2: Nhìn bạn khóc với sự tò mò nhưng chưa biết làm gì.",
-            3: "Mức 3: Có cử chỉ vuốt ve, vỗ lưng hoặc gọi cô đến giúp bạn.",
-            4: "Mức 4: Chủ động chia sẻ đồ chơi, rủ bạn chơi cùng khi thấy bạn buồn."
+            1: "Mức 1: Hoàn toàn không có phản ứng hoặc phớt lờ, thờ ơ khi thấy bạn khác đang khóc, đau hoặc gặp khó khăn. Chỉ quan tâm đến nhu cầu cá nhân.",
+            2: "Mức 2: Có tạm dừng các hoạt động cá nhân để quan sát, theo dõi khi bạn có biểu hiện cảm xúc mạnh (khóc, giận, la hét, vui) nhưng không hành động.",
+            3: "Mức 3: Trẻ thực hiện các cử chỉ an ủi sơ khai bằng hành động cụ thể: biết vuốt lưng/an ủi khi thấy bạn gặp vấn đề, dưới sự khích lệ hoặc tự thân.",
+            4: "Mức 4: Chủ động kết nối giúp bạn giải tỏa/ chia sẻ niềm vui hoặc đề xuất chơi chung để bạn hết buồn ('Bạn đừng khóc nữa, chơi với tớ này')."
         },
         "TC5": {
-            1: "Mức 1: Khóc nhiều, bám chặt bố mẹ khi đón trẻ hoặc đổi môi trường.",
-            2: "Mức 2: Chỉ yên tâm khi ở cạnh cô giáo quen thuộc.",
-            3: "Mức 3: Nhanh chóng hòa nhập sau 5-10 phút được cô động viên.",
-            4: "Mức 4: Vui vẻ vào lớp, chủ động chào cô và bạn khi đến trường."
+            1: "Mức 1: Phụ thuộc hoàn toàn vào không khí lớp kể cả những thay đổi nhỏ hay xuất hiện những yếu tố lạ.",
+            2: "Mức 2: Phụ thuộc vào sự an toàn quen thuộc, dễ bị lây cảm xúc, lo lắng, rụt rè và ngừng tương tác khi môi trường thay đổi.",
+            3: "Mức 3: Ổn định trong môi trường quen thuộc, thích nghi có điều kiện.",
+            4: "Mức 4: Ít bị ảnh hưởng tiêu cực, duy trì được tâm trạng dù môi trường có sự thay đổi."
         },
         "TC6": {
-            1: "Mức 1: Lảng tránh hoặc tiếp tục ăn vạ dù cô đã lắng nghe, công nhận.",
-            2: "Mức 2: Dịu lại nhưng còn giận dỗi, chưa sẵn sàng hợp tác.",
-            3: "Mức 3: Lắng nghe cô, vui vẻ hợp tác trở lại sau khi cảm xúc được ghi nhận.",
-            4: "Mức 4: Mỉm cười, cảm ơn cô/bạn và chủ động chuyển sang hoạt động mới."
+            1: "Mức 1: Có cơ chế phòng vệ, lảng tránh ánh mắt, không trả lời tiếp tục khóc, ăn vạ khi cô đã dỗ.",
+            2: "Mức 2: Trẻ dịu lại 'nghe' khi cô nói nhưng chưa 'hiểu' hoặc chưa muốn thực hiện theo. Cần thời gian chờ lâu.",
+            3: "Mức 3: Hợp tác sau khi được công nhận, kết nối lại và sẵn sàng thực hiện các yêu cầu đơn giản.",
+            4: "Mức 4: Tự giải tỏa được tâm lý, chủ động tìm cô khi cần."
         }
     },
     "Kindergarten (4-5 tuổi)": {
         "TC1": {
-            1: "Mức 1: Bộc phát cảm xúc tiêu cực kéo dài, không gọi tên được cảm xúc.",
-            2: "Mức 2: Nhận biết được cảm xúc của bản thân khi được cô nhắc nhở.",
-            3: "Mức 3: Tự định danh đúng trạng thái cảm xúc (Vui, Giận, Lo lắng, Tự hào).",
-            4: "Mức 4: Phân biệt rõ ràng các mức độ cảm xúc (Hơi buồn vs Rất giận)."
+            1: "Mức 1: Nói được cảm xúc nhưng chưa giải thích được lý do bởi lấn át bởi những hành động. Giận/buồn/vui nhưng chỉ nói 'con không thích', 'Con thích' mà chưa hiểu và nói được lý do.",
+            2: "Mức 2: Xác nhận được lý do khi cô gợi ý câu hỏi nguyên nhân-kết quả. Có thể trả lời khi cô hỏi: 'Con buồn vì bạn lấy đồ chơi của con'.",
+            3: "Mức 3: Chủ động sử dụng câu ghép để giải thích trạng thái: 'Con buồn vì bạn không chơi với con', 'Con vui vì thích bạn'.",
+            4: "Mức 4: Nhận ra sớm cảm xúc, thông tin đến cô tự điều chỉnh hành vi, đưa giải pháp trước khi bộc phát: 'Con đang giận nên con muốn ngồi yên một chút', 'Muốn chia sẻ cùng bạn'."
         },
         "TC2": {
-            1: "Mức 1: Chỉ thể hiện qua hành vi (đập phá, thu mình, khóc).",
-            2: "Mức 2: Gọi tên cảm xúc nhưng câu còn ngắc ngứ, chưa rõ nguyên nhân.",
-            3: "Mức 3: Diễn đạt rõ ràng nguyên nhân khiến mình có cảm xúc đó.",
-            4: "Mức 4: Dùng ngôn ngữ phong phú và cử chỉ phù hợp để giải thích cảm xúc."
+            1: "Mức 1: Ổn định, kiểm soát các hành động bản năng (đánh, ném, khóc, hét, chạy nhảy quá mức). Trẻ bắt đầu sử dụng ngôn ngữ bộc lộ trạng thái tâm lý.",
+            2: "Mức 2: Trẻ tự gọi tên chính xác cảm xúc của mình bằng một câu đơn ngắn rõ ràng mà không cần giáo viên đặt câu hỏi gợi mở từ 2–3 từ: 'Con đang giận', 'Con buồn'.",
+            3: "Mức 3: Nhận định được mối quan hệ giữa sự việc và trạng thái tâm lý cá nhân qua lời nói, cấu trúc 'nhân - quả' rõ hơn: 'Con buồn vì con thua trò chơi'; 'Con vui vì con thích điều đó'.",
+            4: "Mức 4: Biểu đạt cảm xúc kèm mong muốn/ giải pháp cụ thể thay đổi tình huống: 'Con buồn vì bạn lấy bút của con, con muốn bạn trả lại'."
         },
         "TC3": {
-            1: "Mức 1: Hành vi bùng nổ, ném đồ chơi hoặc phản ứng thái quá.",
-            2: "Mức 2: Cần cô can thiệp sâu (dùng góc bình tĩnh, dỗ dành lâu).",
-            3: "Mức 3: Thực hiện được kỹ thuật hít thở / đếm số theo lời gợi ý của cô.",
-            4: "Mức 4: Tự chủ động sử dụng các công cụ bình tĩnh mà không cần cô nhắc."
+            1: "Mức 1: Ổn định, kiềm chế, hành vi bộc phát vật lý ăn vạ kéo dài, vui mừng quá mức. Thay bằng bình tĩnh im lặng, hậm hực quay đi, dừng không hoạt động.",
+            2: "Mức 2: Phối hợp điều chỉnh khi cô hướng dẫn, gợi ý để ngừng các phản ứng tiêu cực/quá khích (hít thở, uống nước, rửa mặt, tìm góc yên tĩnh).",
+            3: "Mức 3: Chủ động tự điều chỉnh cảm xúc và dùng lời nói tự khích lệ ('Cố lên', 'Mình làm được', 'Con ngồi đây một chút cho hết giận') để duy trì trạng thái cân bằng, vượt qua khó khăn hoặc chờ đợi mà không cần cô can thiệp.",
+            4: "Mức 4: Chủ động tách khỏi nguồn xung đột để bảo vệ cảm xúc bản thân, đồng thời tự khôi phục sự tự tin để tiếp tục hoàn thành hoạt động chung một cách hứng khởi."
         },
         "TC4": {
-            1: "Mức 1: Tranh dành đồ chơi, không chú ý đến cảm xúc của bạn.",
-            2: "Mức 2: Biết quan sát cảm xúc của bạn nhưng chưa chủ động hỗ trợ.",
-            3: "Mức 3: Hỏi thăm bạn ('Bạn có sao không?') khi thấy bạn khóc.",
-            4: "Mức 4: Chủ động nhường nhịn, an ủi và giúp bạn giải quyết vướng mắc."
+            1: "Mức 1: Trẻ nhận biết được trạng thái vui, buồn, giận của bạn qua nét mặt, cử chỉ và có phản ứng quan tâm cơ bản như dừng lại quan sát hoặc hỏi thăm 'Bạn sao vậy?'.",
+            2: "Mức 2: Biểu đạt sự đồng cảm, thể hiện quan tâm bằng hành động cụ thể: an ủi hoặc giúp đỡ bạn (vỗ vai, chia sẻ đồ chơi, lấy khăn lau nước mắt hoặc đi tìm cô giúp bạn); vỗ tay, khen ngợi khi bạn vui và thành công.",
+            3: "Mức 3: Trẻ chủ động hành động chia sẻ (an ủi khi bạn buồn, chúc mừng khi bạn vui) một cách tự nhiên và thường xuyên trong nhiều tình huống mà không cần giáo viên nhắc nhở.",
+            4: "Mức 4: Trẻ chủ động mời gọi, kết nối các bạn cùng chơi và biết sử dụng lời nói để hòa giải các mâu thuẫn nhỏ và sự đoàn kết trong nhóm chơi/lớp."
         },
         "TC5": {
-            1: "Mức 1: Khó thích nghi với sự thay đổi thời khóa biểu hay giáo viên mới.",
-            2: "Mức 2: Cần thời gian quan sát trước khi tham gia hoạt động mới.",
-            3: "Mức 3: Dễ dàng tham gia hoạt động mới khi được giải thích trước.",
-            4: "Mức 4: Tự tin, linh hoạt thích ứng với các tình huống phát sinh trong ngày."
+            1: "Mức 1: Còn phản ứng bản năng, nhận biết những sự thay đổi môi trường: bộc lộ sự khó chịu, lo lắng, khóc, phấn khích thu hút sự chú ý.",
+            2: "Mức 2: Hiểu và nhận biết được liên hệ cảm xúc của mình với ngoại cảnh và chủ động tìm sự chia sẻ và hỗ trợ: 'Con buồn vì bạn buồn', 'Con thích vì lớp mình có đồ chơi mới'.",
+            3: "Mức 3: Biết lựa chọn không gian phù hợp với cảm xúc cá nhân để giữ trạng thái ổn định, không bị cuốn theo sự xáo trộn, kích thích từ môi trường xung quanh ('tự lấy đồ chơi, ôm gấu bông', 'chọn góc chơi không gian chơi').",
+            4: "Mức 4: Có tinh thần chủ động nhắc nhở, giữ trật tự cùng cô để có không gian thoải mái cho bản thân và tập thể."
         },
         "TC6": {
-            1: "Mức 1: Vẫn giữ thái độ hờn dỗi dù được lắng nghe.",
-            2: "Mức 2: Cần thêm thời gian riêng trước khi quay lại nhóm.",
-            3: "Mức 3: Cảm thấy được giải tỏa và quay lại hoạt động tích cực.",
-            4: "Mức 4: Thấy được tôn trọng, tự tin chia sẻ giải pháp xử lý vấn đề."
+            1: "Mức 1: Trẻ có dấu hiệu chuyển hóa trạng thái bùng nổ (khóc, gào, ăn vạ), kích thích quá độ (vui, hạnh phúc) sang lắng nghe, thả lỏng cơ thể, giảm các phản ứng xung năng khi được cô gọi đúng cảm xúc và thấu hiểu.",
+            2: "Mức 2: Trẻ chủ động phối hợp với cô: kể lại sự việc, nguyên nhân khi có sự đồng cảm và xoa dịu từ giáo viên ('Con buồn vì bạn lấy đồ chơi', 'Sợ tiếng ồn').",
+            3: "Mức 3: Có sự bình tĩnh, chủ động đề xuất để giải quyết tình huống ('tự đi lấy khăn lau nước mắt, chủ động ra bắt tay làm hòa với bạn, hoặc tiếp tục hoàn thành bài vẽ dở') khi được công nhận cảm xúc.",
+            4: "Mức 4: Hiểu về nguyên nhân - kết quả của hành vi, cảm xúc bản thân và đưa lời hứa để không lặp lại cảm xúc trên."
         }
     },
     "Pre-primary (5-6 tuổi)": {
         "TC1": {
-            1: "Mức 1: Mất kiểm soát khi có cảm xúc mạnh, không nhận ra hậu quả hành vi.",
-            2: "Mức 2: Nhận ra cảm xúc sau khi tình huống đã qua đi.",
-            3: "Mức 3: Nhận biết ngay lập tức cảm xúc đang diễn ra trong mình.",
-            4: "Mức 4: Dự đoán được cảm xúc của mình trước các tình huống sắp tới."
+            1: "Mức 1: Có khả năng định danh được những sắc thái cảm xúc phức tạp và không ăn vạ thô sơ. Chỉ nói được cảm xúc, sắc thái một cách chung chung, chưa gọi tên được cảm xúc thực tế.",
+            2: "Mức 2: Trẻ bắt đầu sử dụng một vài cụm từ vựng cảm xúc bậc cao: hồi hộp, xấu hổ, tự hào thay vì chỉ nói vui/buồn và cảm xúc, sắc thái một cách chung chung.",
+            3: "Mức 3: Lý giải được nguyên nhân, hiểu mối liên hệ giữa sự kiện khách quan và phản ứng chủ quan. Giải thích được tại sao mình có cảm xúc đó khi có sự gợi ý: 'Con thấy lo vì con chưa làm xong bài mà sắp hết giờ'.",
+            4: "Mức 4: Nhận ra sớm và nói được cảm xúc + dự báo cường độ ngay khi sự việc xảy ra mà không cần nhắc nhở: 'Con đang cực kỳ thất vọng vì con đã rất cố gắng', 'Con đang hơi bực nên con muốn bình tĩnh trước'. Duy trì được sự điềm tĩnh khi nói."
         },
         "TC2": {
-            1: "Mức 1: Ngôn ngữ bất lực, dùng hành vi thay cho lời nói.",
-            2: "Mức 2: Nói được cảm xúc nhưng còn ngập ngừng, cần cô dẫn dắt.",
-            3: "Mức 3: Trình bày mạch lạc suy nghĩ, cảm xúc và mong muốn của bản thân.",
-            4: "Mức 4: Thương lượng, hòa giải xung đột bằng lời nói một cách văn minh."
+            1: "Mức 1: Cảm xúc quá mạnh trẻ chỉ dùng âm thanh, hành động (đẩy, kéo) để biểu đạt. Hoặc im lặng tuyệt đối, không thể thốt ra lời hoặc nói đơn giản 'Con không thích' dù cô đã dỗ dành, chia sẻ.",
+            2: "Mức 2: Diễn đạt rập khuôn, hoặc diễn đạt được khi cô đặt câu hỏi lựa chọn với những cảm xúc phức tạp: 'Con đang thấy hụt hẫng vì bạn không chơi cùng hay con thấy giận?'.",
+            3: "Mức 3: Nói rõ được từ vựng sắc thái, bắt đầu tự kết nối được logic nhân quả cảm xúc + nguyên nhân: 'Con buồn vì con thua trò chơi'. Nhưng cần cô hỏi thêm 'Điều gì làm con thấy như vậy?' mới kể rõ được câu chuyện.",
+            4: "Mức 4: Diễn đạt trọn vẹn cảm xúc bình tĩnh, rõ ràng + giải pháp: 'Con buồn vì bạn không cho chơi, mình chơi chung được không?'. Bắt đầu hình thành khả năng kết nối Ngôn ngữ - Logic - Cảm xúc."
         },
         "TC3": {
-            1: "Mức 1: Mất bình tĩnh kéo dài, ảnh hưởng đến các bạn xung quanh.",
-            2: "Mức 2: Cần sự hỗ trợ trực tiếp từ cô để kiềm chế bản thân.",
-            3: "Mức 3: Tự áp dụng được chiến lược giải tỏa cảm xúc tích cực.",
-            4: "Mức 4: Quản trị cảm xúc xuất sắc, biết chuyển hóa năng lượng tiêu cực."
+            1: "Mức 1: Thời gian mất kiểm soát kéo dài (> 10 phút). Từ chối mọi sự vỗ về hay gợi ý bình tĩnh từ giáo viên. Cần tác động vật lý hoặc sự can thiệp liên tục từ giáo viên mới dịu lại.",
+            2: "Mức 2: Trẻ lấy lại cân bằng được 100% nhờ sự điều hướng của giáo viên. Tốc độ hồi phục trung bình (5-7 phút). Nếu không được nhắc, trẻ sẽ tiếp tục trạng thái quá khích.",
+            3: "Mức 3: Tự điều chỉnh đạt 80%. Thời gian hồi phục nhanh (3-5 phút). Có ý thức quay lại hoạt động nhóm sau chủ động nhận diện cảm xúc và đề xuất giải pháp: 'Cô ơi con ra góc ngồi một lát'. Cần một sự xác nhận hoặc khích lệ từ cô để thực hiện hành động đó.",
+            4: "Mức 4: Tự nói phục hồi thời gian nhanh (< 2 phút): 'Con sẽ bình tĩnh rồi nói chuyện với bạn'. Biết điều chỉnh thái độ phù hợp với hoàn cảnh."
         },
         "TC4": {
-            1: "Mức 1: Ít chia sẻ, chưa thể hiện sự đồng cảm với mọi người.",
-            2: "Mức 2: Thấu hiểu cảm xúc của bạn khi được cô phân tích.",
-            3: "Mức 3: Chủ động động viên, hỗ trợ bạn bè khi bạn gặp khó khăn.",
-            4: "Mức 4: Thể hiện trí tuệ cảm xúc cao, biết kết nối và hòa giải nhóm."
+            1: "Mức 1: Trẻ nhận biết được trạng thái cảm xúc của người khác qua nét mặt, cử chỉ. Biết dừng hoạt động cá nhân để hỏi han hoặc quan sát. Tuy nhiên, ưu tiên thỏa mãn nhu cầu cá nhân hơn quan tâm đến tác động cảm xúc lên đối tượng xung quanh.",
+            2: "Mức 2: Trẻ bắt đầu biết quan sát và thực hiện các hành vi xã hội (chia sẻ, giúp đỡ, hỏi han) nhưng chỉ khi có sự nhắc nhở hoặc định hướng trực tiếp từ cô.",
+            3: "Mức 3: Chủ động thực hiện hành vi tương trợ tự phát: biết hỏi han, an ủi khi bạn bất ổn. Bắt đầu sử dụng kỹ năng thương lượng để giải quyết mâu thuẫn: 'Tớ chơi trước, cậu chơi sau nhé' hoặc 'Chúng mình cùng chơi chung đi'. Biết cân bằng giữa nhu cầu cá nhân và lợi ích của bạn bè để duy trì cuộc chơi.",
+            4: "Mức 4: Khả năng phối hợp nhóm và dẫn dắt giúp giải quyết, tôn trọng sự khác biệt: 'Hai bạn cùng chơi chung nhé'."
         },
         "TC5": {
-            1: "Mức 1: Thụ động hoặc kháng cự khi có sự thay đổi lớn.",
-            2: "Mức 2: Cần người đồng hành trong môi trường mới.",
-            3: "Mức 3: Thích ứng tốt, vui vẻ đón nhận thử thách mới.",
-            4: "Mức 4: Truyền năng lượng tích cực, giúp đỡ các bạn khác thích ứng."
+            1: "Mức 1: Trẻ dễ bị kích động hoặc trở nên thu mình trước các thay đổi của môi trường, chưa biết cách tự thoát ra khỏi sự khó chịu do ngoại cảnh gây ra. Chưa hình thành màng lọc cảm xúc.",
+            2: "Mức 2: Trẻ nhận ra mình khó chịu do môi trường 'Con thấy ồn quá' nhưng chỉ dừng lại ở việc than phiền hoặc chờ đợi cô giải quyết. Vẫn phụ thuộc vào sự can thiệp của cô để thay đổi trạng thái.",
+            3: "Mức 3: Biết tìm kiếm các giải pháp thay thế phù hợp khi môi trường không như ý. Chủ động thay đổi vị trí hoặc hành động để giảm bớt ảnh hưởng của môi trường: tự di chuyển ra chỗ yên tĩnh hơn khi lớp quá ồn, hoặc tự tìm đồ chơi thay thế.",
+            4: "Mức 4: Trẻ giữ được tâm thế ổn định dù môi trường thay đổi phức tạp. Duy trì hiệu suất hoạt động và thái độ tích cực bất chấp các biến số ngoại cảnh bất lợi: 'Thấy lớp lộn xộn, trẻ chủ động thu dọn để tạo không gian thoải mái cho mình và bạn'."
         },
         "TC6": {
-            1: "Mức 1: Phản ứng phòng thủ hoặc cố chấp.",
-            2: "Mức 2: Lắng nghe phản hồi nhưng cần thời gian suy ngẫm.",
-            3: "Mức 3: Hợp tác tốt, sẵn sàng điều chỉnh hành vi của mình.",
-            4: "Mức 4: Chủ động rút ra bài học kinh nghiệm cho bản thân."
+            1: "Mức 1: Cần rất nhiều thời gian (> 15 phút), bị kẹt trong thế giới riêng, chưa có khả năng kết nối lại và nhiều phương pháp tiếp cận khác nhau từ giáo viên mới có thể bắt đầu dịu lại.",
+            2: "Mức 2: Chấp nhận sự đồng cảm nhưng thụ động, dừng các phản ứng thái quá khi được cô gọi tên cảm xúc 'Cô biết con đang rất buồn'. Lấy lại bình tĩnh được nhưng không chủ động tham gia lại vào hoạt động lớp. Cần cô dắt tay hoặc khích lệ thêm mới chịu vận động.",
+            3: "Mức 3: Phản hồi tích cực ngay sau khi được công nhận: biết gật đầu, lau nước mắt và chia sẻ thêm lý do khi cảm thấy được thấu hiểu. Biết dùng lời nói để xác nhận sự giải tỏa: 'Con đỡ buồn rồi ạ'.",
+            4: "Mức 4: Thể hiện sự trưởng thành về tâm thế: không chỉ tự xoa dịu mà còn biết cảm ơn người đã lắng nghe mình. Chủ động tìm cách giải quyết: 'Con sẽ nói với bạn cho con chơi chung'."
         }
     }
 }
+
+# -----------------------------------------------------------------------------
+# 🤖 THUẬT TOÁN MA TRẬN TỰ ĐỘNG "NHẶT" MINH CHỨNG VÀO 6 TIÊU CHÍ EQ
+# -----------------------------------------------------------------------------
+def auto_map_daily_to_criteria(student_name, teacher_name, daily_df):
+    if daily_df is None or daily_df.empty:
+        return None
+    
+    std_logs = daily_df[(daily_df['Student'] == student_name) & (daily_df['Teacher'] == teacher_name)]
+    if std_logs.empty:
+        return None
+        
+    m1_cnt = 0
+    m2_cnt = 0
+    m3_cnt = 0
+    m4_cnt = 0
+    
+    tc5_levels = []
+    tc4_levels = []
+    tc6_levels = []
+    
+    context_evidences = []
+    
+    for _, row in std_logs.iterrows():
+        emotions_text = str(row.get('Emotions', ''))
+        note = str(row.get('Note', '')).strip()
+        interv = str(row.get('Intervention', '')).strip()
+        dt_str = str(row.get('Date', ''))
+        
+        c_m1 = emotions_text.count("[Mức 1]")
+        c_m2 = emotions_text.count("[Mức 2]")
+        c_m3 = emotions_text.count("[Mức 3]")
+        c_m4 = emotions_text.count("[Mức 4]")
+        
+        m1_cnt += c_m1
+        m2_cnt += c_m2
+        m3_cnt += c_m3
+        m4_cnt += c_m4
+        
+        if "Đón trẻ" in emotions_text or "Trả trẻ" in emotions_text or "Tình huống phát sinh" in emotions_text:
+            if c_m1 > 0: tc5_levels.append(1)
+            elif c_m2 > 0: tc5_levels.append(2)
+            elif c_m4 > 0: tc5_levels.append(4)
+            else: tc5_levels.append(3)
+            
+        if "Hoạt động chiều" in emotions_text or "Hoạt động có chủ đích" in emotions_text:
+            if c_m4 > 0: tc4_levels.append(4)
+            elif c_m1 > 0: tc4_levels.append(1)
+            elif c_m2 > 0: tc4_levels.append(2)
+            else: tc4_levels.append(3)
+            
+        if interv:
+            if "ngoan" in interv.lower() or "dịu" in interv.lower() or "hợp tác" in interv.lower() or "vui" in interv.lower():
+                tc6_levels.append(3 if c_m1 == 0 else 4)
+            elif "khóc" in interv.lower() or "hờn" in interv.lower():
+                tc6_levels.append(1 if c_m1 > 0 else 2)
+                
+        if note or interv or c_m1 > 0 or c_m4 > 0:
+            context_evidences.append(f"• {dt_str}: {emotions_text}" + (f" | Bối cảnh: {note}" if note else "") + (f" | Can thiệp: {interv}" if interv else ""))
+
+    total_obs = m1_cnt + m2_cnt + m3_cnt + m4_cnt
+    
+    if total_obs > 0:
+        if m1_cnt / total_obs >= 0.3: auto_tc3 = 1
+        elif (m1_cnt + m2_cnt) / total_obs >= 0.4: auto_tc3 = 2
+        elif m4_cnt / total_obs >= 0.3: auto_tc3 = 4
+        else: auto_tc3 = 3
+    else: auto_tc3 = 3
+    
+    if m1_cnt > m3_cnt + m4_cnt:
+        auto_tc1 = 1
+        auto_tc2 = 1
+    elif m2_cnt > m3_cnt + m4_cnt:
+        auto_tc1 = 2
+        auto_tc2 = 2
+    elif m4_cnt >= 2:
+        auto_tc1 = 4
+        auto_tc2 = 4
+    else:
+        auto_tc1 = 3
+        auto_tc2 = 3
+        
+    auto_tc4 = round(sum(tc4_levels) / len(tc4_levels)) if tc4_levels else (4 if m4_cnt > 0 else 3)
+    auto_tc5 = round(sum(tc5_levels) / len(tc5_levels)) if tc5_levels else (1 if m1_cnt > 3 else (2 if m2_cnt > 3 else 3))
+    auto_tc6 = round(sum(tc6_levels) / len(tc6_levels)) if tc6_levels else (2 if m1_cnt > 2 else 3)
+    
+    auto_peq = round((auto_tc1 + auto_tc2 + auto_tc3 + auto_tc4 + auto_tc5 + auto_tc6) / 6.0, 2)
+    auto_group = "DUY TRÌ" if auto_peq >= 3.2 else ("CẦN CẢI THIỆN" if auto_peq >= 2.0 else "HỖ TRỢ ĐẶC BIỆT")
+    
+    evidence_str = "\n".join(context_evidences[:4]) if context_evidences else "Bé sinh hoạt và học tập ổn định theo thời khóa biểu trong tháng."
+    auto_context = f"Dựa trên {len(std_logs)} lượt ghi nhận hằng ngày:\n{evidence_str}"
+    
+    if auto_group == "DUY TRÌ":
+        auto_conclusion = f"Bé {student_name} có trí tuệ cảm xúc phát triển rất tích cực (PEQ={auto_peq}), thuộc nhóm DUY TRÌ PHONG ĐỘ. Bé tự chủ cảm xúc tốt và biết hòa nhập với bạn bè."
+        auto_plan = f"Kế hoạch: Tiếp tục phát huy năng lực tự chủ, giao vai trò thủ lĩnh nhóm và khuyến khích bé hỗ trợ các bạn khác trong lớp."
+    elif auto_group == "CẦN CẢI THIỆN":
+        auto_conclusion = f"Bé {student_name} đang trong quá trình phát triển cảm xúc (PEQ={auto_peq}), thuộc nhóm CẦN CẢI THIỆN. Đã có nhận thức nhưng còn bộc phát ở một số tình huống."
+        auto_plan = f"Kế hoạch: Hướng dẫn bé thực hành gọi tên cảm xúc, gợi ý sử dụng Góc bình tĩnh khi bé gặp khó khăn hoặc có xáo trộn."
+    else:
+        auto_conclusion = f"Bé {student_name} gặp nhiều khó khăn trong quản trị cảm xúc (PEQ={auto_peq}), thuộc nhóm HỖ TRỢ ĐẶC BIỆT. Bé dễ bùng nổ Mức 1 và cần sự đồng hành sát sao từ cô."
+        auto_plan = f"Kế hoạch: Thiết lập can thiệp 1-1, sử dụng kỹ thuật dỗ dành ôm xoa dịu, phối hợp chặt chẽ với phụ huynh để thống nhất phương pháp tại nhà."
+
+    return {
+        "TC1": auto_tc1, "TC2": auto_tc2, "TC3": auto_tc3,
+        "TC4": auto_tc4, "TC5": auto_tc5, "TC6": auto_tc6,
+        "P_EQ": auto_peq, "Group_Clean": auto_group,
+        "Context": auto_context, "Conclusion": auto_conclusion, "Plan": auto_plan
+    }
 
 # -----------------------------------------------------------------------------
 # 3. DỮ LIỆU TÀI KHOẢN MẶC ĐỊNH & HÀM ĐỒNG BỘ GOOGLE SHEET
@@ -287,123 +394,6 @@ def get_users_dict():
             "status": row.get("status", "active")
         }
     return u_dict
-
-# -----------------------------------------------------------------------------
-# 🤖 THUẬT TOÁN MA TRẬN TỰ ĐỘNG "NHẶT" MINH CHỨNG VÀO 6 TIÊU CHÍ EQ
-# -----------------------------------------------------------------------------
-def auto_map_daily_to_criteria(student_name, teacher_name, daily_df):
-    if daily_df is None or daily_df.empty:
-        return None
-    
-    std_logs = daily_df[(daily_df['Student'] == student_name) & (daily_df['Teacher'] == teacher_name)]
-    if std_logs.empty:
-        return None
-        
-    m1_cnt = 0
-    m2_cnt = 0
-    m3_cnt = 0
-    m4_cnt = 0
-    
-    tc5_levels = [] # Thích ứng môi trường (Đón/Trả/Tình huống)
-    tc4_levels = [] # Đồng cảm / Xã hội (Hoạt động nhóm)
-    tc6_levels = [] # Phản ứng khi cô công nhận
-    
-    context_evidences = []
-    
-    for _, row in std_logs.iterrows():
-        emotions_text = str(row.get('Emotions', ''))
-        note = str(row.get('Note', '')).strip()
-        interv = str(row.get('Intervention', '')).strip()
-        dt_str = str(row.get('Date', ''))
-        
-        c_m1 = emotions_text.count("[Mức 1]")
-        c_m2 = emotions_text.count("[Mức 2]")
-        c_m3 = emotions_text.count("[Mức 3]")
-        c_m4 = emotions_text.count("[Mức 4]")
-        
-        m1_cnt += c_m1
-        m2_cnt += c_m2
-        m3_cnt += c_m3
-        m4_cnt += c_m4
-        
-        if "Đón trẻ" in emotions_text or "Trả trẻ" in emotions_text or "Tình huống phát sinh" in emotions_text:
-            if c_m1 > 0: tc5_levels.append(1)
-            elif c_m2 > 0: tc5_levels.append(2)
-            elif c_m4 > 0: tc5_levels.append(4)
-            else: tc5_levels.append(3)
-            
-        if "Hoạt động chiều" in emotions_text or "Hoạt động có chủ đích" in emotions_text:
-            if c_m4 > 0: tc4_levels.append(4)
-            elif c_m1 > 0: tc4_levels.append(1)
-            elif c_m2 > 0: tc4_levels.append(2)
-            else: tc4_levels.append(3)
-            
-        if interv:
-            if "ngoan" in interv.lower() or "dịu" in interv.lower() or "hợp tác" in interv.lower() or "vui" in interv.lower():
-                tc6_levels.append(3 if c_m1 == 0 else 4)
-            elif "khóc" in interv.lower() or "hờn" in interv.lower():
-                tc6_levels.append(1 if c_m1 > 0 else 2)
-                
-        if note or interv or c_m1 > 0 or c_m4 > 0:
-            context_evidences.append(f"• {dt_str}: {emotions_text}" + (f" | Bối cảnh: {note}" if note else "") + (f" | Can thiệp: {interv}" if interv else ""))
-
-    # --- TÍNH TOÁN ĐIỂM TỰ ĐỘNG SUY LUẬN CHO 6 TIÊU CHÍ ---
-    total_obs = m1_cnt + m2_cnt + m3_cnt + m4_cnt
-    
-    # 1. TC3 (Kiểm soát cảm xúc) dựa vào tỷ lệ mức phản ứng thực tế
-    if total_obs > 0:
-        if m1_cnt / total_obs >= 0.3: auto_tc3 = 1
-        elif (m1_cnt + m2_cnt) / total_obs >= 0.4: auto_tc3 = 2
-        elif m4_cnt / total_obs >= 0.3: auto_tc3 = 4
-        else: auto_tc3 = 3
-    else: auto_tc3 = 3
-    
-    # 2. TC1 (Nhận biết) & TC2 (Diễn đạt)
-    if m1_cnt > m3_cnt + m4_cnt:
-        auto_tc1 = 1
-        auto_tc2 = 1
-    elif m2_cnt > m3_cnt + m4_cnt:
-        auto_tc1 = 2
-        auto_tc2 = 2
-    elif m4_cnt >= 2:
-        auto_tc1 = 4
-        auto_tc2 = 4
-    else:
-        auto_tc1 = 3
-        auto_tc2 = 3
-        
-    # 3. TC4 (Đồng cảm & Xã hội)
-    auto_tc4 = round(sum(tc4_levels) / len(tc4_levels)) if tc4_levels else (4 if m4_cnt > 0 else 3)
-    
-    # 4. TC5 (Thích ứng môi trường)
-    auto_tc5 = round(sum(tc5_levels) / len(tc5_levels)) if tc5_levels else (1 if m1_cnt > 3 else (2 if m2_cnt > 3 else 3))
-    
-    # 5. TC6 (Phản ứng khi cô công nhận)
-    auto_tc6 = round(sum(tc6_levels) / len(tc6_levels)) if tc6_levels else (2 if m1_cnt > 2 else 3)
-    
-    auto_peq = round((auto_tc1 + auto_tc2 + auto_tc3 + auto_tc4 + auto_tc5 + auto_tc6) / 6.0, 2)
-    auto_group = "DUY TRÌ" if auto_peq >= 3.2 else ("CẦN CẢI THIỆN" if auto_peq >= 2.0 else "HỖ TRỢ ĐẶC BIỆT")
-    
-    evidence_str = "\n".join(context_evidences[:4]) if context_evidences else "Bé sinh hoạt và học tập ổn định theo thời khóa biểu trong tháng."
-    
-    auto_context = f"Dựa trên {len(std_logs)} lượt ghi nhận hằng ngày:\n{evidence_str}"
-    
-    if auto_group == "DUY TRÌ":
-        auto_conclusion = f"Bé {student_name} có trí tuệ cảm xúc phát triển rất tích cực (PEQ={auto_peq}), thuộc nhóm DUY TRÌ PHONG ĐỘ. Bé tự chủ cảm xúc tốt và biết hòa nhập với bạn bè."
-        auto_plan = f"Kế hoạch: Tiếp tục phát huy năng lực tự chủ, giao vai trò thủ lĩnh nhóm và khuyến khích bé hỗ trợ các bạn khác trong lớp."
-    elif auto_group == "CẦN CẢI THIỆN":
-        auto_conclusion = f"Bé {student_name} đang trong quá trình phát triển cảm xúc (PEQ={auto_peq}), thuộc nhóm CẦN CẢI THIỆN. Đã có nhận thức nhưng còn bộc phát ở một số tình huống."
-        auto_plan = f"Kế hoạch: Hướng dẫn bé thực hành gọi tên cảm xúc, gợi ý sử dụng Góc bình tĩnh khi bé gặp khó khăn hoặc có xáo trộn."
-    else:
-        auto_conclusion = f"Bé {student_name} gặp nhiều khó khăn trong quản trị cảm xúc (PEQ={auto_peq}), thuộc nhóm HỖ TRỢ ĐẶC BIỆT. Bé dễ bùng nổ Mức 1 và cần sự đồng hành sát sao từ cô."
-        auto_plan = f"Kế hoạch: Thiết lập can thiệp 1-1, sử dụng kỹ thuật dỗ dành ôm xoa dịu, phối hợp chặt chẽ với phụ huynh để thống nhất phương pháp tại nhà."
-
-    return {
-        "TC1": auto_tc1, "TC2": auto_tc2, "TC3": auto_tc3,
-        "TC4": auto_tc4, "TC5": auto_tc5, "TC6": auto_tc6,
-        "P_EQ": auto_peq, "Group_Clean": auto_group,
-        "Context": auto_context, "Conclusion": auto_conclusion, "Plan": auto_plan
-    }
 
 # -----------------------------------------------------------------------------
 # 4. HÀM CHUẨN HÓA BẢNG XUẤT FILE EXCEL/CSV CHUẨN THEO MẪU
@@ -623,6 +613,7 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
+        
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
             login_pass = st.text_input("🔑 Mật khẩu:", type="password", placeholder="Nhập mật khẩu...").strip()
@@ -659,7 +650,7 @@ if st.session_state.logged_user is None:
             <div>
                 <span class="campus-badge">🏢 TFA Hà Đô (Phường Cát Lái, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Quận 8, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)</span>
             </div>
@@ -708,7 +699,7 @@ else:
                 with col2: BGH_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[BGH_code]}").strip()
                 BGH_u = st.text_input("Tên đăng nhập BGH:", value=f"BGH{BGH_code}").strip()
                 BGH_p = st.text_input("Mật khẩu BGH:", value="123456")
-                btn_bgh = st.form_submit_button("➕ Tạo Tài Khoản BGH ")
+                btn_bgh = st.form_submit_button("➕ Tạo Tài Khoản BGH (Nhấn Enter)")
                 
                 if btn_bgh:
                     if BGH_u in users_dict:
@@ -1017,7 +1008,7 @@ else:
                         "Hào hứng 🤩": False,
                         "Lo lắng 😮‍💨": False,
                         "Tự hào 🌟": False,
-                        "Mức độ phản ứng": "Mức 3 - Tự cân bằng khi cô nhắc",
+                        "Mức độ phản ứng": "Mức 3 - Tự nhận biết / Tự cân bằng khi cô nhắc",
                         "Ghi chú chi tiết": ""
                     })
                 df_routine_init = pd.DataFrame(init_routines_data)
@@ -1076,9 +1067,9 @@ else:
                             act_level = str(row["Mức độ phản ứng"])
                             act_note = str(row["Ghi chú chi tiết"]).strip()
                             
-                            if active_emos or act_note or act_level != "Mức 3 - Tự cân bằng khi cô nhắc":
+                            if active_emos or act_note or "Mức 3" not in act_level:
                                 e_str = ", ".join(active_emos) if active_emos else "Ghi nhận"
-                                level_tag = act_level.split(" - ")[0]
+                                level_tag = act_level.split(" - ")
                                 emotions_summary_list.append(f"{act_name}: {e_str} [{level_tag}]" + (f" ({act_note})" if act_note else ""))
                             
                             details_dict[act_name] = {
@@ -1118,7 +1109,7 @@ else:
                 st.info("Chưa có hồ sơ cảm xúc hằng ngày nào được lưu.")
 
         # ---------------------------------------------------------------------
-        # 🎯 3. ĐÁNH GIÁ EQ 6 TIÊU CHÍ (CÓ NÚT TỰ ĐỘNG TỔNG HỢP 1-CLICK TỪ NHẬT KÝ)
+        # 🎯 3. ĐÁNH GIÁ EQ 6 TIÊU CHÍ (CÓ MA TRẬN NHẶT TỰ ĐỘNG 1-CLICK TỪ NHẬT KÝ)
         # ---------------------------------------------------------------------
         elif main_menu == "🎯 3. Đánh giá EQ 6 Tiêu chí":
             st.subheader("🎯 ĐÁNH GIÁ EQ 6 TIÊU CHÍ (CÓ MA TRẬN NHẶT TỰ ĐỘNG THÔNG MINH)")
@@ -1205,28 +1196,28 @@ else:
                 
                 with col_c1:
                     st.markdown("##### 1. TC1: Nhận biết cảm xúc bản thân")
-                    tc1_val = st.radio("Chọn Mức cho TC1:", [1, 2, 3, 4], index=def_tc1-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc1_{std_eval}", horizontal=True)
+                    tc1_val = st.radio("Chọn Mức cho TC1:", [4-6, 8], index=def_tc1-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc1_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC1'][tc1_val]}")
                     
                     st.markdown("##### 2. TC2: Gọi tên và diễn đạt cảm xúc")
-                    tc2_val = st.radio("Chọn Mức cho TC2:", [1, 2, 3, 4], index=def_tc2-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc2_{std_eval}", horizontal=True)
+                    tc2_val = st.radio("Chọn Mức cho TC2:", [4-6, 8], index=def_tc2-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc2_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC2'][tc2_val]}")
                     
                     st.markdown("##### 3. TC3: Điều chỉnh và kiểm soát cảm xúc")
-                    tc3_val = st.radio("Chọn Mức cho TC3:", [1, 2, 3, 4], index=def_tc3-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc3_{std_eval}", horizontal=True)
+                    tc3_val = st.radio("Chọn Mức cho TC3:", [4-6, 8], index=def_tc3-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc3_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC3'][tc3_val]}")
 
                 with col_c2:
                     st.markdown("##### 4. TC4: Đồng cảm và quan hệ xã hội")
-                    tc4_val = st.radio("Chọn Mức cho TC4:", [1, 2, 3, 4], index=def_tc4-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc4_{std_eval}", horizontal=True)
+                    tc4_val = st.radio("Chọn Mức cho TC4:", [4-6, 8], index=def_tc4-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc4_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC4'][tc4_val]}")
                     
                     st.markdown("##### 5. TC5: Ảnh hưởng môi trường đến cảm xúc")
-                    tc5_val = st.radio("Chọn Mức cho TC5:", [1, 2, 3, 4], index=def_tc5-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc5_{std_eval}", horizontal=True)
+                    tc5_val = st.radio("Chọn Mức cho TC5:", [4-6, 8], index=def_tc5-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc5_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC5'][tc5_val]}")
                     
                     st.markdown("##### 6. TC6: Phản ứng khi cảm xúc được công nhận")
-                    tc6_val = st.radio("Chọn Mức cho TC6:", [1, 2, 3, 4], index=def_tc6-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc6_{std_eval}", horizontal=True)
+                    tc6_val = st.radio("Chọn Mức cho TC6:", [4-6, 8], index=def_tc6-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc6_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC6'][tc6_val]}")
 
                 peq = round((tc1_val + tc2_val + tc3_val + tc4_val + tc5_val + tc6_val) / 6.0, 2)
@@ -1261,7 +1252,7 @@ else:
                     st.rerun()
 
         # ---------------------------------------------------------------------
-        # 📈 4. BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ
+        # 📈 4. BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ (SO SÁNH 2 ĐỢT/THÁNG)
         # ---------------------------------------------------------------------
         elif main_menu == "📈 4. Bảng So Sánh & Xu Hướng EQ":
             st.subheader("📈 BẢNG SO SÁNH & XÁC NHẬN XU HƯỚNG PHÁT TRIỂN EQ")
@@ -1314,7 +1305,7 @@ else:
             st.table(calculate_class_stats(my_comps))
 
         # ---------------------------------------------------------------------
-        # 📊 5. BÁO CÁO & XUẤT FILE LỚP
+        # 📊 5. BÁO CÁO & XUẤT FILE LỚP (EXCEL / CSV CHUẨN CỘT MẪU)
         # ---------------------------------------------------------------------
         else:
             st.subheader("📊 BÁO CÁO TỔNG HỢP & XUẤT FILE ĐÁNH GIÁ EQ CỦA LỚP")
