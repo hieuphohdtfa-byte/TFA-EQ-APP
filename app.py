@@ -506,7 +506,6 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
-        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=260)
         
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
