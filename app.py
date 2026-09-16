@@ -1336,4 +1336,3 @@ else:
                     f"Bang_Xu_Huong_EQ_Lop_{user_info.get('class_name', '')}.csv",
                     "text/csv"
                 )
-                )
