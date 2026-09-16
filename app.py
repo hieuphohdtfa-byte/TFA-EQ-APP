@@ -8,7 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # -----------------------------------------------------------------------------
-# 🔗 TỰ ĐỘNG KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL CỦA BẠN
+# 🔗 TỰ ĐỘNG KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
 GAS_URL = "https://script.google.com/macros/s/AKfycbwberqVIUJFxysiahO69QJT_3AJn2YDmrTvzUzdyC21sI_QbR0B-Xrz3mRD-Yo0vdDIkw/exec"
 
@@ -84,7 +84,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. KHỜI TẠO MÃ CƠ SỞ & KHỐI LỚP CHUẨN
+# 2. KHỞI TẠO MÃ CƠ SỞ & KHỐI LỚP CHUẨN
 # -----------------------------------------------------------------------------
 CAMPUS_MAP = {
     "HD": "Cơ sở TFA Hà Đô (Phường Cát Lái, TP.HCM)",
@@ -94,7 +94,7 @@ CAMPUS_MAP = {
     "LVS": "Cơ sở TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)"
 }
 
-TFA_CLASSES = ["Toddler ", "Pre-school", "Kindergarten", "Pre-primary"]
+TFA_CLASSES = ["Toddler 1", "Toddler 2", "Pre-school", "Kindergarten", "Pre-primary"]
 TFA_ROUTINES = [
     "Đón trẻ - Thể dục sáng", "Ăn sáng", "Hoạt động có chủ đích",
     "Ăn trưa", "Ăn xế", "Hoạt động chiều", "Trả trẻ", "Tình huống phát sinh"
@@ -133,12 +133,11 @@ def save_sheet_to_gas(sheet_name, df):
         res = requests.post(GAS_URL, json=payload, timeout=12)
         return res.status_code == 200
     except Exception as e:
-        st.error(f"⚠️ Lỗi lưu Google Sheet: {e}")
+        st.error(f"⚠️ Lỗi đồng bộ Google Sheet: {e}")
         return False
 
-# Nạp dữ liệu từ Google Sheet vào Session State
 if 'gas_loaded' not in st.session_state:
-    with st.spinner("🔄 Đang đồng bộ dữ liệu từ Google Trang tính..."):
+    with st.spinner("🔄 Đang nạp dữ liệu từ Google Trang tính..."):
         gas_data = load_all_from_gas()
         st.session_state.users_df = pd.DataFrame(gas_data.get("Users", [])) if gas_data.get("Users") else DEFAULT_USERS_DF
         st.session_state.students_df = pd.DataFrame(gas_data.get("Students", [])) if gas_data.get("Students") else pd.DataFrame(columns=["teacher_user", "student_name"])
@@ -221,7 +220,7 @@ with head_col2:
     """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 6. GIAO DIỆN BÌA NGOÀI / LANDING PAGE (CHƯA ĐĂNG NHẬP)
+# 6. GIAO DIỆN BÌA NGOÀI (BỌC FORM ĐỂ BẤM ENTER ĐĂNG NHẬP)
 # -----------------------------------------------------------------------------
 users_dict = get_users_dict()
 
@@ -235,25 +234,30 @@ if st.session_state.logged_user is None:
                 <p style="color: #666; font-size: 13px; margin-bottom: 15px;">Dành cho Ban Giám Hiệu & Giáo Viên TFA</p>
             </div>
         """, unsafe_allow_html=True)
-            
-        login_user = st.text_input("👤 Tên đăng nhập:", key="login_u", placeholder="Nhập tên đăng nhập...").strip()
-        login_pass = st.text_input("🔑 Mật khẩu:", type="password", key="login_p", placeholder="Nhập mật khẩu...").strip()
         
-        st.write("")
-        if st.button("🚀 CỔNG ĐĂNG NHẬP"):
-            if login_user in users_dict:
-                u_info = users_dict[login_user]
-                if str(u_info["password"]) == str(login_pass):
-                    if u_info.get("status", "active") == "inactive":
-                        st.error("❌ Tài khoản này đã bị NGƯNG HIỆU LỰC hoạt động! Vui lòng liên hệ BGH.")
+        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=260)
+        
+        # Bọc Form Đăng Nhập
+        with st.form(key="login_form"):
+            login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
+            login_pass = st.text_input("🔑 Mật khẩu:", type="password", placeholder="Nhập mật khẩu...").strip()
+            st.write("")
+            btn_login = st.form_submit_button("🚀 CỔNG ĐĂNG NHẬP (Nhấn Enter)")
+            
+            if btn_login:
+                if login_user in users_dict:
+                    u_info = users_dict[login_user]
+                    if str(u_info["password"]) == str(login_pass):
+                        if u_info.get("status", "active") == "inactive":
+                            st.error("❌ Tài khoản này đã bị NGƯNG HIỆU LỰC hoạt động!")
+                        else:
+                            st.session_state.logged_user = login_user
+                            st.success(f"🎉 Đăng nhập thành công! Chào mừng {u_info['name']}")
+                            st.rerun()
                     else:
-                        st.session_state.logged_user = login_user
-                        st.success(f"🎉 Đăng nhập thành công! Chào mừng {u_info['name']}")
-                        st.rerun()
+                        st.error("❌ Mật khẩu không chính xác!")
                 else:
-                    st.error("❌ Mật khẩu không chính xác! Vui lòng kiểm tra lại.")
-            else:
-                st.error("❌ Tên đăng nhập không tồn tại trên hệ thống!")
+                    st.error("❌ Tên đăng nhập không tồn tại trên hệ thống!")
 
     with col_right:
         st.markdown("""
@@ -308,25 +312,27 @@ else:
         
         if main_menu == "👑 1. Tạo & Quản lý Tài khoản BGH":
             st.subheader("👑 TẠO & QUẢN LÝ TÀI KHOẢN BGH CƠ SỞ")
-            col1, col2 = st.columns(2)
-            with col1: BGH_code = st.selectbox("Chọn Cơ sở quản lý:", list(CAMPUS_MAP.keys()), format_func=lambda x: f"{x} - {CAMPUS_MAP[x]}")
-            with col2: BGH_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[BGH_code]}").strip()
-            BGH_u = st.text_input("Tên đăng nhập BGH:", value=f"BGH{BGH_code}").strip()
-            BGH_p = st.text_input("Mật khẩu BGH:", value="123456")
-            
-            if st.button("➕ Tạo Tài Khoản BGH Cơ Sở"):
-                if BGH_u in users_dict:
-                    st.warning(f"⚠️ Tên đăng nhập `{BGH_u}` đã tồn tại!")
-                else:
-                    new_row = pd.DataFrame([{
-                        "username": BGH_u, "password": BGH_p, "name": BGH_name,
-                        "role": "campus_admin", "campus_code": BGH_code,
-                        "campus": CAMPUS_MAP[BGH_code], "class_name": "Tất cả", "status": "active"
-                    }])
-                    st.session_state.users_df = pd.concat([st.session_state.users_df, new_row], ignore_index=True)
-                    save_sheet_to_gas("Users", st.session_state.users_df)
-                    st.success(f"🎉 Đã lưu vĩnh viễn trên Google Sheets! Tên TK: `{BGH_u}` | Mật khẩu: `{BGH_p}`")
-                    st.rerun()
+            with st.form(key="form_create_bgh"):
+                col1, col2 = st.columns(2)
+                with col1: BGH_code = st.selectbox("Chọn Cơ sở quản lý:", list(CAMPUS_MAP.keys()), format_func=lambda x: f"{x} - {CAMPUS_MAP[x]}")
+                with col2: BGH_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[BGH_code]}").strip()
+                BGH_u = st.text_input("Tên đăng nhập BGH:", value=f"BGH{BGH_code}").strip()
+                BGH_p = st.text_input("Mật khẩu BGH:", value="123456")
+                btn_bgh = st.form_submit_button("➕ Tạo Tài Khoản BGH (Nhấn Enter)")
+                
+                if btn_bgh:
+                    if BGH_u in users_dict:
+                        st.warning(f"⚠️ Tên đăng nhập `{BGH_u}` đã tồn tại!")
+                    else:
+                        new_row = pd.DataFrame([{
+                            "username": BGH_u, "password": BGH_p, "name": BGH_name,
+                            "role": "campus_admin", "campus_code": BGH_code,
+                            "campus": CAMPUS_MAP[BGH_code], "class_name": "Tất cả", "status": "active"
+                        }])
+                        st.session_state.users_df = pd.concat([st.session_state.users_df, new_row], ignore_index=True)
+                        save_sheet_to_gas("Users", st.session_state.users_df)
+                        st.success(f"🎉 Đã lưu vĩnh viễn trên Google Sheets! TK: `{BGH_u}` | Mật khẩu: `{BGH_p}`")
+                        st.rerun()
 
             st.markdown("---")
             st.dataframe(st.session_state.users_df, use_container_width=True)
@@ -350,25 +356,27 @@ else:
         
         if main_menu == f"🏫 1. Tạo Giáo viên ({my_code})":
             st.subheader(f"🏫 BGH QUẢN LÝ VÀ TẠO TÀI KHOẢN GIÁO VIÊN: {my_campus.upper()}")
-            col1, col2 = st.columns(2)
-            with col1: t_phone = st.text_input("Số điện thoại Giáo viên:").strip()
-            with col2: t_name = st.text_input("Họ và tên Giáo viên:").strip()
-            
-            if st.button("➕ Tạo Tài Khoản Giáo Viên"):
-                if t_phone and t_name:
-                    gen_u = f"{t_phone}{my_code}"
-                    if gen_u in users_dict:
-                        st.warning(f"⚠️ Tài khoản `{gen_u}` đã tồn tại!")
-                    else:
-                        new_row = pd.DataFrame([{
-                            "username": gen_u, "password": "123456", "name": t_name,
-                            "role": "teacher", "campus_code": my_code,
-                            "campus": my_campus, "class_name": "Chưa tạo lớp", "status": "active"
-                        }])
-                        st.session_state.users_df = pd.concat([st.session_state.users_df, new_row], ignore_index=True)
-                        save_sheet_to_gas("Users", st.session_state.users_df)
-                        st.success(f"🎉 Đã lưu vĩnh viễn trên Google Sheets! Tên TK: `{gen_u}` | Mật khẩu: `123456`")
-                        st.rerun()
+            with st.form(key="form_create_gv"):
+                col1, col2 = st.columns(2)
+                with col1: t_phone = st.text_input("Số điện thoại Giáo viên:").strip()
+                with col2: t_name = st.text_input("Họ và tên Giáo viên:").strip()
+                btn_gv = st.form_submit_button("➕ Tạo Tài Khoản Giáo Viên (Nhấn Enter)")
+                
+                if btn_gv:
+                    if t_phone and t_name:
+                        gen_u = f"{t_phone}{my_code}"
+                        if gen_u in users_dict:
+                            st.warning(f"⚠️ Tài khoản `{gen_u}` đã tồn tại!")
+                        else:
+                            new_row = pd.DataFrame([{
+                                "username": gen_u, "password": "123456", "name": t_name,
+                                "role": "teacher", "campus_code": my_code,
+                                "campus": my_campus, "class_name": "Chưa tạo lớp", "status": "active"
+                            }])
+                            st.session_state.users_df = pd.concat([st.session_state.users_df, new_row], ignore_index=True)
+                            save_sheet_to_gas("Users", st.session_state.users_df)
+                            st.success(f"🎉 Đã lưu vĩnh viễn trên Google Sheets! TK: `{gen_u}` | Mật khẩu: `123456`")
+                            st.rerun()
 
             st.markdown("---")
             gv_df = st.session_state.users_df[(st.session_state.users_df['role'] == 'teacher') & (st.session_state.users_df['campus_code'] == my_code)]
@@ -379,40 +387,79 @@ else:
             st.dataframe(df_c, use_container_width=True)
 
     # =========================================================================
-    # VAI TRÒ 3: GIÁO VIÊN TỪNG LỚP
+    # VAI TRÒ 3: GIÁO VIÊN TỪNG LỚP (ĐÃ CÓ ĐỦ SỬA/XÓA HỌC SINH + PRESS ENTER)
     # =========================================================================
     else:
         main_menu = st.sidebar.radio("DANH MỤC GIÁO VIÊN:", ["🏫 1. Quản lý Học sinh", "📝 2. Nhật ký Cảm xúc", "🎯 3. Đánh giá EQ 6 Tiêu chí", "📊 4. Báo cáo Lớp"])
 
         if main_menu == "🏫 1. Quản lý Học sinh":
             st.subheader("🏫 TỰ TẠO LỚP HỌC & QUẢN LÝ HỌC SINH")
-            col_l1, col_l2 = st.columns(2)
-            with col_l1: sel_class_type = st.selectbox("Chọn Khối lớp:", TFA_CLASSES)
-            with col_l2: custom_class_name = st.text_input("Tên riêng của Lớp:", value=user_info.get("class_name", sel_class_type))
-                
-            if st.button("💾 Cập Nhật Tên Lớp"):
-                user_idx = st.session_state.users_df[st.session_state.users_df['username'] == user_key].index
-                if not user_idx.empty:
-                    st.session_state.users_df.at[user_idx[0], "class_name"] = custom_class_name
-                    save_sheet_to_gas("Users", st.session_state.users_df)
-                    st.success(f"🎉 Đã lưu tên lớp: **{custom_class_name}**")
-                    st.rerun()
+            
+            # Form 1: Cập nhật tên lớp (Hỗ trợ bấm Enter)
+            with st.form(key="form_update_class_name"):
+                col_l1, col_l2 = st.columns(2)
+                with col_l1: sel_class_type = st.selectbox("Chọn Khối lớp:", TFA_CLASSES)
+                with col_l2: custom_class_name = st.text_input("Tên riêng của Lớp:", value=user_info.get("class_name", sel_class_type))
+                btn_class = st.form_submit_button("💾 Cập Nhật Tên Lớp (Hoặc nhấn Enter)")
+                if btn_class:
+                    user_idx = st.session_state.users_df[st.session_state.users_df['username'] == user_key].index
+                    if not user_idx.empty:
+                        st.session_state.users_df.at[user_idx, "class_name"] = custom_class_name
+                        save_sheet_to_gas("Users", st.session_state.users_df)
+                        st.success(f"🎉 Đã lưu tên lớp: **{custom_class_name}**")
+                        st.rerun()
 
             st.markdown("---")
-            new_student = st.text_input("Họ và tên học sinh mới:").strip()
-            if st.button("➕ Thêm Học Sinh Mới"):
-                if new_student:
-                    new_std_row = pd.DataFrame([{"teacher_user": user_key, "student_name": new_student}])
-                    st.session_state.students_df = pd.concat([st.session_state.students_df, new_std_row], ignore_index=True)
-                    save_sheet_to_gas("Students", st.session_state.students_df)
-                    st.success(f"🎉 Đã lưu vĩnh viễn bé **{new_student}** vào Google Sheet!")
-                    st.rerun()
+            
+            # Form 2: Thêm học sinh mới (Hỗ trợ bấm Enter)
+            with st.form(key="form_add_student", clear_on_submit=True):
+                st.markdown("##### ➕ Thêm Học Sinh Mới")
+                new_student = st.text_input("Họ và tên học sinh mới:").strip()
+                btn_std = st.form_submit_button("➕ Thêm Học Sinh (Hoặc nhấn Enter)")
+                if btn_std:
+                    if new_student:
+                        new_std_row = pd.DataFrame([{"teacher_user": user_key, "student_name": new_student}])
+                        st.session_state.students_df = pd.concat([st.session_state.students_df, new_std_row], ignore_index=True)
+                        save_sheet_to_gas("Students", st.session_state.students_df)
+                        st.success(f"🎉 Đã lưu vĩnh viễn bé **{new_student}** vào Google Sheet!")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Vui lòng điền họ tên học sinh!")
 
             st.markdown("---")
+            st.markdown("##### 📋 Danh Sách Học Sinh Trong Lớp (Có Nút Sửa / Xóa)")
+            
+            # Khôi phục tính năng Sửa & Xóa Học Sinh
             my_stds_df = st.session_state.students_df[st.session_state.students_df['teacher_user'] == user_key]
             if not my_stds_df.empty:
-                st.dataframe(my_stds_df[['student_name']], use_container_width=True)
-            else: st.info("Lớp chưa có học sinh nào.")
+                for idx, row in my_stds_df.iterrows():
+                    s_name = row['student_name']
+                    c_s1, c_s2, c_s3 = st.columns([2.8, 1, 1])
+                    with c_s1: st.write(f"👦/👧 **{s_name}**")
+                    with c_s2:
+                        if st.button("✏️ Sửa", key=f"edit_std_{idx}"):
+                            st.session_state[f"editing_std_{idx}"] = not st.session_state.get(f"editing_std_{idx}", False)
+                    with c_s3:
+                        if st.button("🗑️ Xóa", key=f"del_std_{idx}"):
+                            st.session_state.students_df = st.session_state.students_df.drop(idx).reset_index(drop=True)
+                            save_sheet_to_gas("Students", st.session_state.students_df)
+                            st.success(f"Đã xóa học sinh **{s_name}** khỏi lớp!")
+                            st.rerun()
+                    
+                    # Form sửa tên học sinh khi nhấn ✏️ Sửa
+                    if st.session_state.get(f"editing_std_{idx}", False):
+                        with st.form(key=f"form_edit_std_{idx}"):
+                            new_name_val = st.text_input("Sửa lại họ và tên:", value=s_name)
+                            btn_save_edit = st.form_submit_button("💾 Lưu Thay Đổi (Hoặc nhấn Enter)")
+                            if btn_save_edit:
+                                st.session_state.students_df.at[idx, 'student_name'] = new_name_val.strip()
+                                save_sheet_to_gas("Students", st.session_state.students_df)
+                                st.session_state[f"editing_std_{idx}"] = False
+                                st.success(f"🎉 Đã cập nhật tên thành **{new_name_val.strip()}**!")
+                                st.rerun()
+                    st.markdown("<hr style='margin: 4px 0;'>", unsafe_allow_html=True)
+            else:
+                st.info("Lớp chưa có học sinh nào. Hãy nhập tên bé ở ô phía trên nhé!")
 
         elif main_menu == "📝 2. Nhật ký Cảm xúc":
             st.subheader("📝 NHẬT KÝ CẢM XÚC HẰNG NGÀY")
