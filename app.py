@@ -84,12 +84,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. KHỜI TẠO CẤU TRÚC KHỐI LỚP & BỘ TIÊU CHÍ EQ 3 NHÓM TUỔI
+# 2. KHỜI TẠO CẤU TRÚC KHỐI LỚP (BỎ TODDLER) & BỘ TIÊU CHÍ EQ 3 NHÓM TUỔI
 # -----------------------------------------------------------------------------
 CAMPUS_MAP = {
     "HD": "Cơ sở TFA Hà Đô (Phường Cát Lái, TP.HCM)",
     "HL": "Cơ sở TFA Him Lam (Phường Tân Hưng, Quận 7, TP.HCM)",
-    "DBM": "Cơ sở TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)",
+    "DBM": "Cơ sở TFA Dương Bạch Mai (Quận 8, TP.HCM)",
     "LVS": "Cơ sở TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)",
     "TTL": "Cơ sở TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)"
 }
@@ -505,8 +505,7 @@ if st.session_state.logged_user is None:
                 <p style="color: #666; font-size: 13px; margin-bottom: 15px;">Dành cho Ban Giám Hiệu & Giáo Viên TFA</p>
             </div>
         """, unsafe_allow_html=True)
-        
-        
+          
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
             login_pass = st.text_input("🔑 Mật khẩu:", type="password", placeholder="Nhập mật khẩu...").strip()
@@ -542,10 +541,10 @@ if st.session_state.logged_user is None:
         st.markdown("""
             <div>
                 <span class="campus-badge">🏢 TFA Hà Đô (Phường Cát Lái, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Phường Chánh Hưng , TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Quận 8, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Trần Thị Lý (Đà Nẵng)</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -653,23 +652,26 @@ else:
             st.dataframe(st.session_state.daily_logs_df, use_container_width=True)
 
     # =========================================================================
-    # VAI TRÒ 2: BGH TỪNG CƠ SỞ (CAMPUS ADMIN)
+    # VAI TRÒ 2: BGH TỪNG CƠ SỞ (CAMPUS ADMIN) - ĐÃ THÊM CHỨC NĂNG SỬA / XÓA / KHÓA TÀI KHOẢN GIÁO VIÊN
     # =========================================================================
     elif role == "campus_admin":
         my_campus = user_info['campus']
         my_code = user_info['campus_code']
         main_menu = st.sidebar.radio(f"DANH MỤC BGH ({my_code}):", [
-            f"🏫 1. Tạo Giáo viên ({my_code})",
+            f"🏫 1. Tạo & Quản lý Giáo viên ({my_code})",
             f"📊 2. Báo cáo EQ Cơ sở ({my_code})",
             f"📈 3. Bảng So Sánh Xu Hướng ({my_code})"
         ])
         
-        if main_menu == f"🏫 1. Tạo Giáo viên ({my_code})":
+        if main_menu == f"🏫 1. Tạo & Quản lý Giáo viên ({my_code})":
             st.subheader(f"🏫 BGH QUẢN LÝ VÀ TẠO TÀI KHOẢN GIÁO VIÊN: {my_campus.upper()}")
+            
             with st.form(key="form_create_gv"):
-                col1, col2 = st.columns(2)
-                with col1: t_phone = st.text_input("Số điện thoại Giáo viên:").strip()
+                st.markdown("##### ➕ Tạo Tài Khoản Giáo Viên Mới")
+                col1, col2, col3 = st.columns([1.5, 2, 1.5])
+                with col1: t_phone = st.text_input("Số điện thoại (dùng làm SĐT/TK):").strip()
                 with col2: t_name = st.text_input("Họ và tên Giáo viên:").strip()
+                with col3: t_class = st.selectbox("Khối Lớp phụ trách:", TFA_CLASSES)
                 btn_gv = st.form_submit_button("➕ Tạo Tài Khoản Giáo Viên (Nhấn Enter)")
                 
                 if btn_gv:
@@ -681,7 +683,7 @@ else:
                             new_row = pd.DataFrame([{
                                 "username": gen_u, "password": "123456", "name": t_name,
                                 "role": "teacher", "campus_code": my_code,
-                                "campus": my_campus, "class_name": "Chưa tạo lớp", "status": "active"
+                                "campus": my_campus, "class_name": t_class, "status": "active"
                             }])
                             st.session_state.users_df = pd.concat([st.session_state.users_df, new_row], ignore_index=True)
                             save_sheet_to_gas("Users", st.session_state.users_df)
@@ -689,8 +691,63 @@ else:
                             st.rerun()
 
             st.markdown("---")
-            gv_df = st.session_state.users_df[(st.session_state.users_df['role'] == 'teacher') & (st.session_state.users_df['campus_code'] == my_code)]
-            st.dataframe(gv_df, use_container_width=True)
+            st.markdown(f"##### 📋 Danh Sách Giáo Viên Cơ Sở {my_code} (BGH có quyền Sửa / Đổi MK / Khóa / Xóa)")
+            
+            gv_idx_list = st.session_state.users_df[
+                (st.session_state.users_df['role'] == 'teacher') & 
+                (st.session_state.users_df['campus_code'] == my_code)
+            ].index.tolist()
+            
+            if gv_idx_list:
+                for idx in gv_idx_list:
+                    row = st.session_state.users_df.loc[idx]
+                    u_username = row['username']
+                    u_name = row['name']
+                    u_class = row.get('class_name', 'Chưa xếp lớp')
+                    u_status = row.get('status', 'active')
+                    status_badge = "🟢 Đang hoạt động" if u_status == "active" else "🔴 Đã khóa"
+                    
+                    c_g1, c_g2, c_g3, c_g4 = st.columns([2.5, 1, 1, 1])
+                    with c_g1:
+                        st.write(f"👩‍🏫 **{u_name}** | Lớp: `{u_class}` | TK: `{u_username}` | {status_badge}")
+                    with c_g2:
+                        if st.button("✏️ Sửa", key=f"edit_gv_btn_{idx}"):
+                            st.session_state[f"editing_gv_{idx}"] = not st.session_state.get(f"editing_gv_{idx}", False)
+                    with c_g3:
+                        toggle_txt = "🔒 Khóa" if u_status == "active" else "🔓 Mở khóa"
+                        if st.button(toggle_txt, key=f"toggle_gv_{idx}"):
+                            new_st = "inactive" if u_status == "active" else "active"
+                            st.session_state.users_df.at[idx, 'status'] = new_st
+                            save_sheet_to_gas("Users", st.session_state.users_df)
+                            st.success(f"Đã chuyển trạng thái TK **{u_name}** sang `{new_st}`!")
+                            st.rerun()
+                    with c_g4:
+                        if st.button("🗑️ Xóa", key=f"del_gv_{idx}"):
+                            st.session_state.users_df = st.session_state.users_df.drop(idx).reset_index(drop=True)
+                            save_sheet_to_gas("Users", st.session_state.users_df)
+                            st.success(f"Đã xóa tài khoản giáo viên **{u_name}**!")
+                            st.rerun()
+                    
+                    if st.session_state.get(f"editing_gv_{idx}", False):
+                        with st.form(key=f"form_edit_gv_detail_{idx}"):
+                            st.markdown(f"**Sửa thông tin cho Giáo viên: {u_name}**")
+                            col_e1, col_e2, col_e3 = st.columns(3)
+                            with col_e1: new_gv_name = st.text_input("Họ và tên:", value=u_name)
+                            with col_e2: new_gv_class = st.selectbox("Khối Lớp:", TFA_CLASSES, index=TFA_CLASSES.index(u_class) if u_class in TFA_CLASSES else 0)
+                            with col_e3: new_gv_pass = st.text_input("Mật khẩu mới:", value=str(row['password']))
+                            btn_save_gv = st.form_submit_button("💾 Lưu Thay Đổi (Nhấn Enter)")
+                            
+                            if btn_save_gv:
+                                st.session_state.users_df.at[idx, 'name'] = new_gv_name.strip()
+                                st.session_state.users_df.at[idx, 'class_name'] = new_gv_class
+                                st.session_state.users_df.at[idx, 'password'] = new_gv_pass.strip()
+                                save_sheet_to_gas("Users", st.session_state.users_df)
+                                st.session_state[f"editing_gv_{idx}"] = False
+                                st.success("🎉 Đã cập nhật thông tin Giáo viên vĩnh viễn!")
+                                st.rerun()
+                    st.markdown("<hr style='margin: 4px 0;'>", unsafe_allow_html=True)
+            else:
+                st.info("Cơ sở chưa có giáo viên nào. Hãy nhập thông tin ở bảng phía trên để tạo!")
 
         elif main_menu == f"📊 2. Báo cáo EQ Cơ sở ({my_code})":
             st.subheader(f"📊 BÁO CÁO TỔNG HỢP EQ CƠ SỞ: {my_campus.upper()}")
