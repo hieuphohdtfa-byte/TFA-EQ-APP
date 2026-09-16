@@ -1,4 +1,4 @@
-mport streamlit as st
+import streamlit as st
 import pandas as pd
 import requests
 import os
@@ -975,7 +975,7 @@ else:
                     ] if not st.session_state.daily_logs_df.empty else pd.DataFrame()
                     
                     if not std_logs.empty:
-                        col_ev1, col_ev2 = st.columns()
+                        col_ev1, col_ev2 = st.columns(2)
                         with col_ev1:
                             st.markdown(f"**📊 Tổng số ngày có ghi nhận nhật ký:** `{len(std_logs)} ngày`")
                             all_emos_str = " ".join(std_logs['Emotions'].dropna().tolist())
