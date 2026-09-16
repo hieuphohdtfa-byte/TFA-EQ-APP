@@ -192,7 +192,7 @@ CRITERIA_DATA = {
             3: "Mức 3: Có sự bình tĩnh, chủ động đề xuất để giải quyết tình huống ('tự đi lấy khăn lau nước mắt, chủ động ra bắt tay làm hòa với bạn, hoặc tiếp tục hoàn thành bài vẽ dở') khi được công nhận cảm xúc.",
             4: "Mức 4: Hiểu về nguyên nhân - kết quả của hành vi, cảm xúc bản thân và đưa lời hứa để không lặp lại cảm xúc trên."
         }
-    },llo
+    },
     "Pre-primary (5-6 tuổi)": {
         "TC1": {
             1: "Mức 1: Có khả năng định danh được những sắc thái cảm xúc phức tạp và không ăn vạ thô sơ. Chỉ nói được cảm xúc, sắc thái một cách chung chung, chưa gọi tên được cảm xúc thực tế.",
