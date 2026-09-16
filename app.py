@@ -505,7 +505,8 @@ if st.session_state.logged_user is None:
                 <p style="color: #666; font-size: 13px; margin-bottom: 15px;">Dành cho Ban Giám Hiệu & Giáo Viên TFA</p>
             </div>
         """, unsafe_allow_html=True)
-          
+        
+        
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
             login_pass = st.text_input("🔑 Mật khẩu:", type="password", placeholder="Nhập mật khẩu...").strip()
@@ -585,7 +586,7 @@ else:
         
         if main_menu == "👑 1. Tạo & Quản lý Tài khoản BGH":
             st.subheader("👑 TẠO & QUẢN LÝ TÀI KHOẢN BGH CƠ SỞ")
-            with st.form(key="form_create_bgh"):
+            with st.form(key="form_create_bgh", clear_on_submit=True):
                 col1, col2 = st.columns(2)
                 with col1: BGH_code = st.selectbox("Chọn Cơ sở quản lý:", list(CAMPUS_MAP.keys()), format_func=lambda x: f"{x} - {CAMPUS_MAP[x]}")
                 with col2: BGH_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[BGH_code]}").strip()
@@ -652,7 +653,7 @@ else:
             st.dataframe(st.session_state.daily_logs_df, use_container_width=True)
 
     # =========================================================================
-    # VAI TRÒ 2: BGH TỪNG CƠ SỞ (CAMPUS ADMIN) - ĐÃ THÊM CHỨC NĂNG SỬA / XÓA / KHÓA TÀI KHOẢN GIÁO VIÊN
+    # VAI TRÒ 2: BGH TỪNG CƠ SỞ (CAMPUS ADMIN) - ĐÃ TỐI ƯU HÓA PHÍM ENTER TỰ ĐỘNG LƯU
     # =========================================================================
     elif role == "campus_admin":
         my_campus = user_info['campus']
@@ -666,13 +667,14 @@ else:
         if main_menu == f"🏫 1. Tạo & Quản lý Giáo viên ({my_code})":
             st.subheader(f"🏫 BGH QUẢN LÝ VÀ TẠO TÀI KHOẢN GIÁO VIÊN: {my_campus.upper()}")
             
-            with st.form(key="form_create_gv"):
-                st.markdown("##### ➕ Tạo Tài Khoản Giáo Viên Mới")
+            with st.form(key="form_create_gv", clear_on_submit=True):
+                st.markdown("##### ➕ Tạo Tài Khoản Giáo Viên Mới (Gõ xong nhấn Enter)")
                 col1, col2, col3 = st.columns([1.5, 2, 1.5])
-                with col1: t_phone = st.text_input("Số điện thoại (dùng làm SĐT/TK):").strip()
+                with col1: t_class = st.selectbox("Khối Lớp phụ trách:", TFA_CLASSES)
                 with col2: t_name = st.text_input("Họ và tên Giáo viên:").strip()
-                with col3: t_class = st.selectbox("Khối Lớp phụ trách:", TFA_CLASSES)
-                btn_gv = st.form_submit_button("➕ Tạo Tài Khoản Giáo Viên (Nhấn Enter)")
+                with col3: t_phone = st.text_input("Số điện thoại (dùng làm SĐT/TK):").strip()
+                
+                btn_gv = st.form_submit_button("➕ Tạo Tài Khoản Giáo Viên (Hoặc nhấn Enter)")
                 
                 if btn_gv:
                     if t_phone and t_name:
@@ -687,8 +689,10 @@ else:
                             }])
                             st.session_state.users_df = pd.concat([st.session_state.users_df, new_row], ignore_index=True)
                             save_sheet_to_gas("Users", st.session_state.users_df)
-                            st.success(f"🎉 Đã lưu vĩnh viễn trên Google Sheets! TK: `{gen_u}` | Mật khẩu: `123456`")
+                            st.success(f"🎉 Đã lưu vĩnh viễn giáo viên {t_name} trên Google Sheets! TK: `{gen_u}` | Mật khẩu: `123456`")
                             st.rerun()
+                    else:
+                        st.warning("⚠️ Vui lòng nhập đầy đủ Họ tên và Số điện thoại!")
 
             st.markdown("---")
             st.markdown(f"##### 📋 Danh Sách Giáo Viên Cơ Sở {my_code} (BGH có quyền Sửa / Đổi MK / Khóa / Xóa)")
@@ -730,12 +734,12 @@ else:
                     
                     if st.session_state.get(f"editing_gv_{idx}", False):
                         with st.form(key=f"form_edit_gv_detail_{idx}"):
-                            st.markdown(f"**Sửa thông tin cho Giáo viên: {u_name}**")
+                            st.markdown(f"**Sửa thông tin cho Giáo viên: {u_name} (Nhấn Enter để Lưu)**")
                             col_e1, col_e2, col_e3 = st.columns(3)
-                            with col_e1: new_gv_name = st.text_input("Họ và tên:", value=u_name)
-                            with col_e2: new_gv_class = st.selectbox("Khối Lớp:", TFA_CLASSES, index=TFA_CLASSES.index(u_class) if u_class in TFA_CLASSES else 0)
+                            with col_e1: new_gv_class = st.selectbox("Khối Lớp:", TFA_CLASSES, index=TFA_CLASSES.index(u_class) if u_class in TFA_CLASSES else 0)
+                            with col_e2: new_gv_name = st.text_input("Họ và tên:", value=u_name)
                             with col_e3: new_gv_pass = st.text_input("Mật khẩu mới:", value=str(row['password']))
-                            btn_save_gv = st.form_submit_button("💾 Lưu Thay Đổi (Nhấn Enter)")
+                            btn_save_gv = st.form_submit_button("💾 Lưu Thay Đổi (Hoặc nhấn Enter)")
                             
                             if btn_save_gv:
                                 st.session_state.users_df.at[idx, 'name'] = new_gv_name.strip()
@@ -787,7 +791,7 @@ else:
             )
 
     # =========================================================================
-    # VAI TRÒ 3: GIÁO VIÊN TỪNG LỚP
+    # VAI TRÒ 3: GIÁO VIÊN TỪNG LỚP - ĐÃ TỐI ƯU HÓA PHÍM ENTER THÊM HỌC SINH TỰ ĐỘNG LƯU
     # =========================================================================
     else:
         main_menu = st.sidebar.radio("DANH MỤC GIÁO VIÊN:", [
@@ -817,18 +821,20 @@ else:
             st.markdown("---")
             
             with st.form(key="form_add_student", clear_on_submit=True):
-                st.markdown("##### ➕ Thêm Học Sinh Mới")
-                new_student = st.text_input("Họ và tên học sinh mới:").strip()
+                st.markdown("##### ➕ Thêm Học Sinh Mới (Gõ tên bé xong nhấn Enter)")
+                new_student_val = st.text_input("Họ và tên học sinh mới:", key="input_new_student")
                 btn_std = st.form_submit_button("➕ Thêm Học Sinh (Hoặc nhấn Enter)")
+                
                 if btn_std:
-                    if new_student:
-                        new_std_row = pd.DataFrame([{"teacher_user": user_key, "student_name": new_student}])
+                    clean_name = new_student_val.strip()
+                    if clean_name:
+                        new_std_row = pd.DataFrame([{"teacher_user": user_key, "student_name": clean_name}])
                         st.session_state.students_df = pd.concat([st.session_state.students_df, new_std_row], ignore_index=True)
                         save_sheet_to_gas("Students", st.session_state.students_df)
-                        st.success(f"🎉 Đã lưu vĩnh viễn bé **{new_student}** vào Google Sheet!")
+                        st.success(f"🎉 Đã lưu vĩnh viễn bé **{clean_name}** vào Google Sheet!")
                         st.rerun()
                     else:
-                        st.warning("⚠️ Vui lòng điền họ tên học sinh!")
+                        st.warning("⚠️ Vui lòng nhập họ tên học sinh!")
 
             st.markdown("---")
             st.markdown("##### 📋 Danh Sách Học Sinh Trong Lớp (Có Nút Sửa / Xóa)")
@@ -851,7 +857,7 @@ else:
                     
                     if st.session_state.get(f"editing_std_{idx}", False):
                         with st.form(key=f"form_edit_std_{idx}"):
-                            new_name_val = st.text_input("Sửa lại họ và tên:", value=s_name)
+                            new_name_val = st.text_input("Sửa lại họ và tên (Nhấn Enter để Lưu):", value=s_name)
                             btn_save_edit = st.form_submit_button("💾 Lưu Thay Đổi (Hoặc nhấn Enter)")
                             if btn_save_edit:
                                 st.session_state.students_df.at[idx, 'student_name'] = new_name_val.strip()
