@@ -660,10 +660,10 @@ if st.session_state.logged_user is None:
         st.markdown("""
             <div>
                 <span class="campus-badge">🏢 TFA Hà Đô (Phường Cát Lái, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Quận 8, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Trần Thị Lý (Đà Nẵng)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -710,7 +710,7 @@ else:
                 with col2: BGH_name = st.text_input("Tên đại diện BGH:", value=f"BGH {CAMPUS_MAP[BGH_code]}").strip()
                 BGH_u = st.text_input("Tên đăng nhập BGH:", value=f"BGH{BGH_code}").strip()
                 BGH_p = st.text_input("Mật khẩu BGH:", value="123456")
-                btn_bgh = st.form_submit_button("➕ Tạo Tài Khoản BGH (Nhấn Enter)")
+                btn_bgh = st.form_submit_button("➕ Tạo Tài Khoản BGH ")
                 
                 if btn_bgh:
                     if BGH_u in users_dict:
