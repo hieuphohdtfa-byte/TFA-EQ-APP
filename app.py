@@ -84,7 +84,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. KHỜI TẠO MÃ CƠ SỞ & KHỐI LỚP CHUẨN
+# 2. KHỜI TẠO MÃ CƠ SỞ & BỘ TIÊU CHÍ EQ PHÂN THEO NHÓM TUỔI
 # -----------------------------------------------------------------------------
 CAMPUS_MAP = {
     "HD": "Cơ sở TFA Hà Đô (Phường Cát Lái, TP.HCM)",
@@ -94,14 +94,133 @@ CAMPUS_MAP = {
     "LVS": "Cơ sở TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)"
 }
 
-TFA_CLASSES = ["Toddler", "Pre-school", "Kindergarten", "Pre-primary"]
+TFA_CLASSES = ["Toddler 1", "Toddler 2", "Pre-school", "Kindergarten", "Pre-primary"]
 TFA_ROUTINES = [
     "Đón trẻ - Thể dục sáng", "Ăn sáng", "Hoạt động có chủ đích",
     "Ăn trưa", "Ăn xế", "Hoạt động chiều", "Trả trẻ", "Tình huống phát sinh"
 ]
 EMOTION_COLS = ["Vui 😊", "Buồn 😢", "Giận 😡", "Yêu thương 🥰", "Hào hứng 🤩", "Lo lắng 😮‍💨", "Tự hào 🌟"]
-MONTH_OPTIONS = ["Tất cả các tháng"] + [f"Tháng {m}" for m in range(1, 13)]
+LEVEL_OPTIONS = ["Mức 3 - Tự cân bằng khi cô nhắc", "Mức 1 - Bùng nổ / Ăn vạ >5p", "Mức 2 - Cần cô dỗ dành / Can thiệp", "Mức 4 - Tự chủ / Tự tìm góc bình tĩnh"]
+
 LOGO_FILE = "logo.png" if os.path.exists("logo.png") else ("Logo TFA Ver2.1 .png" if os.path.exists("Logo TFA Ver2.1 .png") else "logo.png")
+
+# DỮ LIỆU CHUẨN BỘ TIÊU CHÍ EQ THEO NHÓM TUỔI (MỨC 1 - MỨC 4)
+CRITERIA_DATA = {
+    "3-4 tuổi": {
+        "TC1": {
+            1: "Khóc, ăn vạ, bùng nổ mà không biết vì sao mình khó chịu.",
+            2: "Nhận biết được cảm xúc khi được cô gọi tên và dỗ dành.",
+            3: "Nói được mình vui, buồn, sợ khi cô gợi hỏi nhẹ nhàng.",
+            4: "Chủ động nói với cô/bạn về cảm xúc của mình (VD: 'Con sợ', 'Con vui')."
+        },
+        "TC2": {
+            1: "Phản ứng bằng tiếng khóc, la hét hoặc hành vi cơ thể.",
+            2: "Dùng 1 từ đơn để gọi tên cảm xúc (VD: 'Sợ', 'Buồn').",
+            3: "Nói được câu ngắn diễn đạt cảm xúc (VD: 'Con buồn lắm').",
+            4: "Diễn đạt được cảm xúc kèm lý do đơn giản (VD: 'Con buồn vì bạn giành đồ')."
+        },
+        "TC3": {
+            1: "Bùng nổ cảm xúc >5 phút, khóc ăn vạ kéo dài, khó dỗ.",
+            2: "Bình tĩnh lại khi được cô ôm, xoa lưng hoặc dỗ dành trực tiếp.",
+            3: "Tự dừng khóc / dịu lại khi cô nhắc nhở nhẹ nhàng.",
+            4: "Tự biết tìm góc bình tĩnh hoặc lấy gối ôm để tự trấn an."
+        },
+        "TC4": {
+            1: "Thờ ơ, không quan tâm khi bạn bên cạnh khóc hay buồn.",
+            2: "Nhìn bạn khóc với sự tò mò nhưng chưa biết làm gì.",
+            3: "Có cử chỉ vuốt ve, vỗ lưng hoặc gọi cô đến giúp bạn.",
+            4: "Chủ động chia sẻ đồ chơi, rủ bạn chơi cùng khi thấy bạn buồn."
+        },
+        "TC5": {
+            1: "Khóc nhiều, bám chặt bố mẹ khi bắt đầu giờ đón trẻ hoặc đổi môi trường.",
+            2: "Chỉ yên tâm khi ở cạnh cô giáo quen thuộc.",
+            3: "Nhanh chóng hòa nhập sau 5-10 phút được cô động viên.",
+            4: "Vui vẻ vào lớp, chủ động chào cô và bạn khi đến trường."
+        },
+        "TC6": {
+            1: "Lảng tránh hoặc tiếp tục ăn vạ dù cô đã lắng nghe, công nhận.",
+            2: "Dịu lại nhưng còn giận dỗi, chưa sẵn sàng hợp tác.",
+            3: "Lắng nghe cô, vui vẻ hợp tác trở lại sau khi cảm xúc được ghi nhận.",
+            4: "Mỉm cười, cảm ơn cô/bạn và chủ động chuyển sang hoạt động mới."
+        }
+    },
+    "4-5 tuổi": {
+        "TC1": {
+            1: "Bộc phát cảm xúc tiêu cực kéo dài, không gọi tên được cảm xúc.",
+            2: "Nhận biết được cảm xúc của bản thân khi được cô nhắc nhở.",
+            3: "Tự định danh đúng trạng thái cảm xúc (Vui, Giận, Lo lắng, Tự hào).",
+            4: "Phân biệt rõ ràng các mức độ cảm xúc (Hơi buồn vs Rất giận)."
+        },
+        "TC2": {
+            1: "Chỉ thể hiện qua hành vi (đập phá, thu mình, khóc).",
+            2: "Gọi tên cảm xúc nhưng câu còn ngắc ngứ, chưa rõ nguyên nhân.",
+            3: "Diễn đạt rõ ràng nguyên nhân khiến mình có cảm xúc đó.",
+            4: "Dùng ngôn ngữ phong phú và cử chỉ phù hợp để giải thích cảm xúc."
+        },
+        "TC3": {
+            1: "Hành vi bùng nổ, ném đồ chơi hoặc phản ứng thái quá.",
+            2: "Cần cô can thiệp sâu (dùng góc bình tĩnh, dỗ dành lâu).",
+            3: "Thực hiện được kỹ thuật hít thở / đếm số theo lời gợi ý của cô.",
+            4: "Tự chủ động sử dụng các công cụ bình tĩnh mà không cần cô nhắc."
+        },
+        "TC4": {
+            1: "Tranh dành đồ chơi, không chú ý đến cảm xúc của bạn.",
+            2: "Biết quan sát cảm xúc của bạn nhưng chưa chủ động hỗ trợ.",
+            3: "Hỏi thăm bạn ('Bạn có sao không?') khi thấy bạn khóc.",
+            4: "Chủ động nhường nhịn, an ủi và giúp bạn giải quyết vướng mắc."
+        },
+        "TC5": {
+            1: "Khó thích nghi với sự thay đổi thời khóa biểu hay giáo viên mới.",
+            2: "Cần thời gian quan sát trước khi tham gia hoạt động mới.",
+            3: "Dễ dàng tham gia hoạt động mới khi được giải thích trước.",
+            4: "Tự tin, linh hoạt thích ứng với các tình huống phát sinh trong ngày."
+        },
+        "TC6": {
+            1: "Vẫn giữ thái độ hờn dỗi dù được lắng nghe.",
+            2: "Cần thêm thời gian riêng trước khi quay lại nhóm.",
+            3: "Cảm thấy được giải tỏa và quay lại hoạt động tích cực.",
+            4: "Thấy được tôn trọng, tự tin chia sẻ giải pháp xử lý vấn đề."
+        }
+    },
+    "5-6 tuổi": {
+        "TC1": {
+            1: "Mất kiểm soát khi có cảm xúc mạnh, không nhận ra hậu quả hành vi.",
+            2: "Nhận ra cảm xúc sau khi tình huống đã qua đi.",
+            3: "Nhận biết ngay lập tức cảm xúc đang diễn ra trong mình.",
+            4: "Dự đoán được cảm xúc của mình trước các tình huống sắp tới."
+        },
+        "TC2": {
+            1: "Ngôn ngữ bất lực, dùng hành vi thay cho lời nói.",
+            2: "Nói được cảm xúc nhưng còn ngập ngừng, cần cô dẫn dắt.",
+            3: "Trình bày mạch lạc suy nghĩ, cảm xúc và mong muốn của bản thân.",
+            4: "Thương lượng, hòa giải xung đột bằng lời nói một cách văn minh."
+        },
+        "TC3": {
+            1: "Mất bình tĩnh kéo dài, ảnh hưởng đến các bạn xung quanh.",
+            2: "Cần sự hỗ trợ trực tiếp từ cô để kiềm chế bản thân.",
+            3: "Tự áp dụng được chiến lược giải tỏa cảm xúc tích cực.",
+            4: "Quản trị cảm xúc xuất sắc, biết chuyển hóa năng lượng tiêu cực."
+        },
+        "TC4": {
+            1: "Ít chia sẻ, chưa thể hiện sự đồng cảm với mọi người.",
+            2: "Thấu hiểu cảm xúc của bạn khi được cô phân tích.",
+            3: "Chủ động động viên, hỗ trợ bạn bè khi bạn gặp khó khăn.",
+            4: "Thể hiện trí tuệ cảm xúc cao, biết kết nối và hòa giải nhóm."
+        },
+        "TC5": {
+            1: "Thụ động hoặc kháng cự khi có sự thay đổi lớn.",
+            2: "Cần người đồng hành trong môi trường mới.",
+            3: "Thích ứng tốt, vui vẻ đón nhận thử thách mới.",
+            4: "Truyền năng lượng tích cực, giúp đỡ các bạn khác thích ứng."
+        },
+        "TC6": {
+            1: "Phản ứng phòng thủ hoặc cố chấp.",
+            2: "Lắng nghe phản hồi nhưng cần thời gian suy ngẫm.",
+            3: "Hợp tác tốt, sẵn sàng điều chỉnh hành vi của mình.",
+            4: "Chủ động rút ra bài học kinh nghiệm cho bản thân."
+        }
+    }
+}
 
 # -----------------------------------------------------------------------------
 # 3. DỮ LIỆU TÀI KHOẢN MẶC ĐỊNH & HÀM ĐỒNG BỘ GOOGLE SHEET
@@ -165,22 +284,26 @@ def get_users_dict():
     return u_dict
 
 # -----------------------------------------------------------------------------
-# 4. HÀM CHUẨN HÓA BẢNG XUẤT FILE CHUẨN TỰA THEO MẪU WORD/EXCEL CỦA TRƯỜNG
+# 4. HÀM CHUẨN HÓA BẢNG XUẤT FILE EXCEL/CSV CHUẨN THEO MẪU
 # -----------------------------------------------------------------------------
 def format_evaluations_export(df):
-    """Chuẩn hóa bảng Tổng hợp Đánh giá EQ 6 Tiêu chí đúng cột mẫu"""
-    if df.empty:
-        return pd.DataFrame()
+    cols = [
+        "STT", "Tên học sinh", "TC1", "TC2", "TC3", "TC4", "TC5", "TC6",
+        "Điểm TB (PEQ)", "Nhóm Trạng Thái", "Bối cảnh/Minh chứng điển hình (hành vi cụ thể)",
+        "Kết luận xu hướng", "Kế hoạch tác động tiếp theo", "Kỳ / Tháng", "Lớp", "Cơ sở", "Giáo viên"
+    ]
+    if df is None or df.empty:
+        return pd.DataFrame(columns=cols)
     
     export_df = pd.DataFrame()
     export_df["STT"] = range(1, len(df) + 1)
-    export_df["Tên học sinh"] = df["Student"].values
-    export_df["TC1"] = pd.to_numeric(df["TC1"], errors='coerce').fillna(0)
-    export_df["TC2"] = pd.to_numeric(df["TC2"], errors='coerce').fillna(0)
-    export_df["TC3"] = pd.to_numeric(df["TC3"], errors='coerce').fillna(0)
-    export_df["TC4"] = pd.to_numeric(df["TC4"], errors='coerce').fillna(0)
-    export_df["TC5"] = pd.to_numeric(df["TC5"], errors='coerce').fillna(0)
-    export_df["TC6"] = pd.to_numeric(df["TC6"], errors='coerce').fillna(0)
+    export_df["Tên học sinh"] = df["Student"].values if "Student" in df.columns else ""
+    export_df["TC1"] = pd.to_numeric(df["TC1"], errors='coerce').fillna(0) if "TC1" in df.columns else 0
+    export_df["TC2"] = pd.to_numeric(df["TC2"], errors='coerce').fillna(0) if "TC2" in df.columns else 0
+    export_df["TC3"] = pd.to_numeric(df["TC3"], errors='coerce').fillna(0) if "TC3" in df.columns else 0
+    export_df["TC4"] = pd.to_numeric(df["TC4"], errors='coerce').fillna(0) if "TC4" in df.columns else 0
+    export_df["TC5"] = pd.to_numeric(df["TC5"], errors='coerce').fillna(0) if "TC5" in df.columns else 0
+    export_df["TC6"] = pd.to_numeric(df["TC6"], errors='coerce').fillna(0) if "TC6" in df.columns else 0
     
     if "P_EQ" in df.columns:
         export_df["Điểm TB (PEQ)"] = pd.to_numeric(df["P_EQ"], errors='coerce').fillna(0)
@@ -199,15 +322,19 @@ def format_evaluations_export(df):
     return export_df
 
 def format_comparisons_export(df):
-    """Chuẩn hóa bảng So Sánh Xu Hướng EQ giữa 2 đợt đúng cột mẫu"""
-    if df.empty:
-        return pd.DataFrame()
+    cols = [
+        "STT", "Tên học sinh", "Điểm đợt 1 (Kỳ 1)", "Điểm đợt 2 (Kỳ 2)",
+        "Biến thiên", "Xu hướng EQ", "Kết luận xu hướng", "Kế hoạch tác động tiếp theo",
+        "Lớp", "Cơ sở", "Giáo viên"
+    ]
+    if df is None or df.empty:
+        return pd.DataFrame(columns=cols)
     
     export_df = pd.DataFrame()
     export_df["STT"] = range(1, len(df) + 1)
-    export_df["Tên học sinh"] = df["Student"].values
-    export_df["Điểm đợt 1 (Kỳ 1)"] = pd.to_numeric(df["Score_Term1"], errors='coerce').fillna(0.0)
-    export_df["Điểm đợt 2 (Kỳ 2)"] = pd.to_numeric(df["Score_Term2"], errors='coerce').fillna(0.0)
+    export_df["Tên học sinh"] = df["Student"].values if "Student" in df.columns else ""
+    export_df["Điểm đợt 1 (Kỳ 1)"] = pd.to_numeric(df["Score_Term1"], errors='coerce').fillna(0.0) if "Score_Term1" in df.columns else 0.0
+    export_df["Điểm đợt 2 (Kỳ 2)"] = pd.to_numeric(df["Score_Term2"], errors='coerce').fillna(0.0) if "Score_Term2" in df.columns else 0.0
     
     if "Delta" in df.columns:
         export_df["Biến thiên"] = pd.to_numeric(df["Delta"], errors='coerce').fillna(0.0)
@@ -224,13 +351,16 @@ def format_comparisons_export(df):
     return export_df
 
 def calculate_class_stats(df_comp):
-    """Tính bảng Thống kê % Thay đổi giữa Kỳ 1 và Kỳ 2 cho Bảng Xu Hướng"""
-    if df_comp.empty:
-        return pd.DataFrame()
+    if df_comp is None or df_comp.empty:
+        return pd.DataFrame([
+            {"Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm DUY TRÌ (PEQ >= 3.2)", "Kỳ 1 / Tháng trước": "0.00%", "Kỳ 2 / Tháng sau": "0.00%", "Thay đổi (%)": "+0.00%"},
+            {"Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm CẦN CẢI THIỆN (2.0 <= PEQ < 3.2)", "Kỳ 1 / Tháng trước": "0.00%", "Kỳ 2 / Tháng sau": "0.00%", "Thay đổi (%)": "+0.00%"},
+            {"Chỉ số thống kê toàn lớp": "Tỉ lệ nhóm HỖ TRỢ ĐẶC BIỆT (PEQ < 2.0)", "Kỳ 1 / Tháng trước": "0.00%", "Kỳ 2 / Tháng sau": "0.00%", "Thay đổi (%)": "+0.00%"}
+        ])
     
     total_stds = len(df_comp)
-    s1 = pd.to_numeric(df_comp["Score_Term1"], errors='coerce').fillna(0)
-    s2 = pd.to_numeric(df_comp["Score_Term2"], errors='coerce').fillna(0)
+    s1 = pd.to_numeric(df_comp["Score_Term1"], errors='coerce').fillna(0) if "Score_Term1" in df_comp.columns else pd.Series([0]*total_stds)
+    s2 = pd.to_numeric(df_comp["Score_Term2"], errors='coerce').fillna(0) if "Score_Term2" in df_comp.columns else pd.Series([0]*total_stds)
     
     duy_tri_1 = (s1 >= 3.2).sum() / total_stds * 100
     duy_tri_2 = (s2 >= 3.2).sum() / total_stds * 100
@@ -267,26 +397,27 @@ def calculate_class_stats(df_comp):
 # 5. HÀM HỖ TRỢ VẼ BIỂU ĐỒ
 # -----------------------------------------------------------------------------
 def render_eq_charts(eval_df, title_prefix=""):
-    if eval_df.empty:
+    if eval_df is None or eval_df.empty:
         st.info("Chưa có đủ dữ liệu để vẽ biểu đồ trực quan.")
         return
     
     st.markdown(f"#### 📊 BIỂU ĐỒ TRỰC QUAN PHÂN TÍCH CẢM XÚC EQ {title_prefix.upper()}")
     col_chart1, col_chart2 = st.columns(2)
     
-    counts = eval_df["Group_Clean"].value_counts().reset_index()
-    counts.columns = ["Nhóm EQ", "Số lượng"]
-    color_map = { "DUY TRÌ": "#4CAF50", "CẦN CẢI THIỆN": "#FF9800", "HỖ TRỢ ĐẶC BIỆT": "#EF5350" }
-    
-    with col_chart1:
-        fig_pie = px.pie(
-            counts, names="Nhóm EQ", values="Số lượng", 
-            title="<b>Tỉ lệ Phân bố các Nhóm Trạng Thái EQ</b>",
-            color="Nhóm EQ", color_discrete_map=color_map, hole=0.45
-        )
-        fig_pie.update_traces(textinfo='percent+label', textfont_size=13)
-        fig_pie.update_layout(showlegend=True, margin=dict(t=40, b=20, l=20, r=20))
-        st.plotly_chart(fig_pie, use_container_width=True)
+    counts = eval_df["Group_Clean"].value_counts().reset_index() if "Group_Clean" in eval_df.columns else pd.DataFrame()
+    if not counts.empty:
+        counts.columns = ["Nhóm EQ", "Số lượng"]
+        color_map = { "DUY TRÌ": "#4CAF50", "CẦN CẢI THIỆN": "#FF9800", "HỖ TRỢ ĐẶC BIỆT": "#EF5350" }
+        
+        with col_chart1:
+            fig_pie = px.pie(
+                counts, names="Nhóm EQ", values="Số lượng", 
+                title="<b>Tỉ lệ Phân bố các Nhóm Trạng Thái EQ</b>",
+                color="Nhóm EQ", color_discrete_map=color_map, hole=0.45
+            )
+            fig_pie.update_traces(textinfo='percent+label', textfont_size=13)
+            fig_pie.update_layout(showlegend=True, margin=dict(t=40, b=20, l=20, r=20))
+            st.plotly_chart(fig_pie, use_container_width=True)
         
     tc_keys = ["TC1", "TC2", "TC3", "TC4", "TC5", "TC6"]
     tc_names = ["TC1: Nhận biết", "TC2: Bày tỏ", "TC3: Kiềm chế", "TC4: Đồng cảm", "TC5: Thích ứng", "TC6: Lắng nghe"]
@@ -305,7 +436,7 @@ def render_eq_charts(eval_df, title_prefix=""):
             st.plotly_chart(fig_bar, use_container_width=True)
 
 def render_comparison_charts(comp_df, title_prefix=""):
-    if comp_df.empty:
+    if comp_df is None or comp_df.empty:
         st.info("Chưa có dữ liệu so sánh xu hướng để vẽ biểu đồ.")
         return
     st.markdown(f"#### 📈 BIỂU ĐỒ TRỰC QUAN XU HƯỚNG PHÁT TRIỂN EQ {title_prefix.upper()}")
@@ -322,21 +453,22 @@ def render_comparison_charts(comp_df, title_prefix=""):
         )
         st.plotly_chart(fig_group, use_container_width=True)
         
-    trends = comp_df["Trend"].value_counts().reset_index()
-    trends.columns = ["Xu hướng", "Số lượng"]
-    trend_color_map = {
-        "TIẾN BỘ VƯỢT BẬC": "#2E7D32", "TIẾN BỘ": "#4CAF50",
-        "DUY TRÌ ÔN ĐỊNH": "#2196F3", "CẦN LƯU Ý (THỤT LÙI)": "#EF5350"
-    }
-    with col_chart2:
-        fig_trend = px.bar(
-            trends, x="Xu hướng", y="Số lượng", text="Số lượng",
-            color="Xu hướng", color_discrete_map=trend_color_map,
-            title="<b>Phân bố Xu hướng Phát triển EQ</b>"
-        )
-        fig_trend.update_traces(textposition='outside')
-        fig_trend.update_layout(margin=dict(t=40, b=20, l=20, r=20))
-        st.plotly_chart(fig_trend, use_container_width=True)
+    trends = comp_df["Trend"].value_counts().reset_index() if "Trend" in comp_df.columns else pd.DataFrame()
+    if not trends.empty:
+        trends.columns = ["Xu hướng", "Số lượng"]
+        trend_color_map = {
+            "TIẾN BỘ VƯỢT BẬC": "#2E7D32", "TIẾN BỘ": "#4CAF50",
+            "DUY TRÌ ÔN ĐỊNH": "#2196F3", "CẦN LƯU Ý (THỤT LÙI)": "#EF5350"
+        }
+        with col_chart2:
+            fig_trend = px.bar(
+                trends, x="Xu hướng", y="Số lượng", text="Số lượng",
+                color="Xu hướng", color_discrete_map=trend_color_map,
+                title="<b>Phân bố Xu hướng Phát triển EQ</b>"
+            )
+            fig_trend.update_traces(textposition='outside')
+            fig_trend.update_layout(margin=dict(t=40, b=20, l=20, r=20))
+            st.plotly_chart(fig_trend, use_container_width=True)
 
 # -----------------------------------------------------------------------------
 # 6. HEADER THƯƠNG HIỆU CHÍNH
@@ -478,34 +610,39 @@ else:
         elif main_menu == "📊 2. Báo cáo EQ Toàn Hệ Thống":
             st.subheader("📊 BÁO CÁO TỔNG HỢP EQ TOÀN HỆ THỐNG")
             df_eval_raw = st.session_state.evaluations_df
+            df_export = format_evaluations_export(df_eval_raw)
+            
+            st.dataframe(df_export, use_container_width=True)
             if not df_eval_raw.empty:
-                df_export = format_evaluations_export(df_eval_raw)
-                st.dataframe(df_export, use_container_width=True)
                 render_eq_charts(df_eval_raw, "(Toàn Trường)")
-                st.download_button(
-                    "📥 Xuất File CSV/Excel Bảng Tổng Hợp EQ Chuẩn Mẫu",
-                    df_export.to_csv(index=False).encode('utf-8-sig'),
-                    "Bao_Cao_Tong_Hop_EQ_TFA.csv", "text/csv"
-                )
-            else: st.info("Chưa có dữ liệu đánh giá EQ.")
+            else:
+                st.info("ℹ️ Hệ thống chưa ghi nhận đánh giá EQ nào. Bạn vẫn có thể tải Khung Báo Cáo Mẫu (.csv) bên dưới.")
+                
+            st.download_button(
+                "📥 Xuất File CSV/Excel Bảng Tổng Hợp EQ Chuẩn Mẫu",
+                df_export.to_csv(index=False).encode('utf-8-sig'),
+                "Bao_Cao_Tong_Hop_EQ_TFA.csv", "text/csv"
+            )
 
         elif main_menu == "📈 3. Bảng So Sánh & Xu Hướng EQ":
             st.subheader("📈 BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ TOÀN TRƯỜNG")
             df_comp_raw = st.session_state.comparisons_df
+            df_comp_export = format_comparisons_export(df_comp_raw)
+            
+            st.dataframe(df_comp_export, use_container_width=True)
+            st.markdown("##### 📊 Bảng Thống Kê Chỉ Số Biến Thiên Toàn Trường")
+            st.table(calculate_class_stats(df_comp_raw))
+            
             if not df_comp_raw.empty:
-                df_comp_export = format_comparisons_export(df_comp_raw)
-                st.dataframe(df_comp_export, use_container_width=True)
-                
-                st.markdown("##### 📊 Bảng Thống Kê Chỉ Số Biến Thiên Toàn Trường")
-                st.table(calculate_class_stats(df_comp_raw))
-                
                 render_comparison_charts(df_comp_raw, "(Toàn Trường)")
-                st.download_button(
-                    "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Chuẩn Mẫu",
-                    df_comp_export.to_csv(index=False).encode('utf-8-sig'),
-                    "Bang_Xu_Huong_EQ_TFA.csv", "text/csv"
-                )
-            else: st.info("Chưa có dữ liệu so sánh xu hướng EQ.")
+            else:
+                st.info("ℹ️ Chưa có dữ liệu so sánh xu hướng EQ toàn trường. Bạn vẫn có thể tải Khung Báo Cáo Mẫu bên dưới.")
+                
+            st.download_button(
+                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Chuẩn Mẫu",
+                df_comp_export.to_csv(index=False).encode('utf-8-sig'),
+                "Bang_Xu_Huong_EQ_TFA.csv", "text/csv"
+            )
 
         else:
             st.subheader("📝 NHẬT KÝ CẢM XÚC TOÀN HỆ THỐNG")
@@ -552,27 +689,41 @@ else:
             st.dataframe(gv_df, use_container_width=True)
 
         elif main_menu == f"📊 2. Báo cáo EQ Cơ sở ({my_code})":
-            df_c = st.session_state.evaluations_df[st.session_state.evaluations_df['Campus'] == my_campus]
+            st.subheader(f"📊 BÁO CÁO TỔNG HỢP EQ CƠ SỞ: {my_campus.upper()}")
+            df_c = st.session_state.evaluations_df[st.session_state.evaluations_df['Campus'] == my_campus] if not st.session_state.evaluations_df.empty else pd.DataFrame()
+            df_export = format_evaluations_export(df_c)
+            
+            st.dataframe(df_export, use_container_width=True)
             if not df_c.empty:
-                df_export = format_evaluations_export(df_c)
-                st.dataframe(df_export, use_container_width=True)
                 render_eq_charts(df_c, f"({my_code})")
-                st.download_button(
-                    "📥 Xuất File CSV/Excel Báo Cáo EQ Cơ Sở",
-                    df_export.to_csv(index=False).encode('utf-8-sig'),
-                    f"Bao_Cao_EQ_{my_code}.csv", "text/csv"
-                )
-            else: st.info("Chưa có dữ liệu đánh giá EQ tại cơ sở.")
+            else:
+                st.info("ℹ️ Chưa có dữ liệu đánh giá EQ chính thức từ các lớp. Bạn vẫn có thể tải Khung Báo Cáo Mẫu (.csv) bên dưới.")
+                
+            st.download_button(
+                "📥 Xuất File CSV/Excel Báo Cáo EQ Cơ Sở",
+                df_export.to_csv(index=False).encode('utf-8-sig'),
+                f"Bao_Cao_EQ_{my_code}.csv", "text/csv"
+            )
 
         else:
-            df_comp_c = st.session_state.comparisons_df[st.session_state.comparisons_df['Campus'] == my_campus]
+            st.subheader(f"📈 BẢNG SO SÁNH XU HƯỚNG EQ CƠ SỞ: {my_campus.upper()}")
+            df_comp_c = st.session_state.comparisons_df[st.session_state.comparisons_df['Campus'] == my_campus] if not st.session_state.comparisons_df.empty else pd.DataFrame()
+            df_comp_export = format_comparisons_export(df_comp_c)
+            
+            st.dataframe(df_comp_export, use_container_width=True)
+            st.markdown("##### 📊 Bảng Thống Kê Chỉ Số Biến Thiên Cơ Sở")
+            st.table(calculate_class_stats(df_comp_c))
+            
             if not df_comp_c.empty:
-                df_comp_export = format_comparisons_export(df_comp_c)
-                st.dataframe(df_comp_export, use_container_width=True)
-                st.markdown("##### 📊 Bảng Thống Kê Chỉ Số Biến Thiên Cơ Sở")
-                st.table(calculate_class_stats(df_comp_c))
                 render_comparison_charts(df_comp_c, f"({my_code})")
-            else: st.info("Chưa có dữ liệu so sánh xu hướng EQ tại cơ sở.")
+            else:
+                st.info("ℹ️ Chưa có dữ liệu so sánh xu hướng EQ từ các lớp. Bạn vẫn có thể tải Khung Báo Cáo Mẫu bên dưới.")
+                
+            st.download_button(
+                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Cơ Sở",
+                df_comp_export.to_csv(index=False).encode('utf-8-sig'),
+                f"Bang_Xu_Huong_EQ_{my_code}.csv", "text/csv"
+            )
 
     # =========================================================================
     # VAI TRÒ 3: GIÁO VIÊN TỪNG LỚP
@@ -652,11 +803,11 @@ else:
                 st.info("Lớp chưa có học sinh nào. Hãy nhập tên bé ở ô phía trên nhé!")
 
         # ---------------------------------------------------------------------
-        # 📝 2. NHẬT KÝ CẢM XÚC HẰNG NGÀY (THIẾT KẾ CHUẨN MAU WORD)
+        # 📝 2. NHẬT KÝ CẢM XÚC HẰNG NGÀY (THIẾT KẾ DYNAMIC KEYS + MỨC ĐỘ PHẢN ỨNG)
         # ---------------------------------------------------------------------
         elif main_menu == "📝 2. Nhật ký Cảm xúc Hằng ngày":
             st.subheader("📋 HỒ SƠ CẢM XÚC CÁ NHÂN (HẰNG NGÀY)")
-            st.caption("Thiết kế chuẩn hóa theo mẫu Hồ sơ cảm xúc hằng ngày của The FIRST Academy")
+            st.caption("Ghi nhận cảm xúc & mức độ phản ứng thực tế theo từng hoạt động trong ngày")
             
             my_stds = st.session_state.students_df[st.session_state.students_df['teacher_user'] == user_key]['student_name'].tolist()
             if not my_stds:
@@ -667,8 +818,10 @@ else:
                 with col_s2: log_date = st.date_input("🗓️ Ngày theo dõi:", value=datetime.today())
                 with col_s3: st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
                 
+                dynamic_prefix = f"{std_select}_{log_date}"
+                
                 st.markdown("---")
-                st.markdown("#### 1. Hoạt động trong ngày (Tích chọn cảm xúc riêng cho từng hoạt động)")
+                st.markdown("#### 1. Hoạt động trong ngày (Tích chọn cảm xúc & Mức độ phản ứng chuẩn)")
                 
                 init_routines_data = []
                 for r in TFA_ROUTINES:
@@ -681,6 +834,7 @@ else:
                         "Hào hứng 🤩": False,
                         "Lo lắng 😮‍💨": False,
                         "Tự hào 🌟": False,
+                        "Mức độ phản ứng": "Mức 3 - Tự cân bằng khi cô nhắc",
                         "Ghi chú chi tiết": ""
                     })
                 df_routine_init = pd.DataFrame(init_routines_data)
@@ -696,123 +850,185 @@ else:
                         "Hào hứng 🤩": st.column_config.CheckboxColumn("Hào hứng 🤩", default=False),
                         "Lo lắng 😮‍💨": st.column_config.CheckboxColumn("Lo lắng 😮‍💨", default=False),
                         "Tự hào 🌟": st.column_config.CheckboxColumn("Tự hào 🌟", default=False),
-                        "Ghi chú chi tiết": st.column_config.TextColumn("Ghi chú từng hoạt động", width="large")
+                        "Mức độ phản ứng": st.column_config.SelectboxColumn("Mức độ phản ứng chuẩn", options=LEVEL_OPTIONS, required=True, width="medium"),
+                        "Ghi chú chi tiết": st.column_config.TextColumn("Ghi chú cụ thể hành vi", width="large")
                     },
                     hide_index=True,
                     use_container_width=True,
-                    key=f"editor_{std_select}_{log_date}"
+                    key=f"editor_{dynamic_prefix}"
                 )
                 
                 st.markdown("---")
                 st.markdown("#### 2. Quan sát nhanh của giáo viên")
-                col_o1, col_o2 = st.columns(2)
-                with col_o1:
-                    note_context = st.text_area("📌 Bối cảnh và biểu hiện nổi bật:", placeholder="Mô tả cụ thể hành vi, cử chỉ hay bối cảnh xảy ra cảm xúc...")
-                with col_o2:
-                    note_intervention = st.text_area("🤝 Can thiệp và hỗ trợ của giáo viên:", placeholder="Ghi lại hành động dỗ dành, ôm, hỏi gợi mở hay góc bình tĩnh cô đã dùng...")
-                    
-                st.markdown("---")
-                st.markdown("#### 3. Đánh giá cuối ngày")
-                col_d1, col_d2 = st.columns(2)
-                with col_d1:
-                    daily_trend = st.selectbox("📈 Xu hướng cảm xúc trong ngày:", [
-                        "Duy trì cảm xúc tích cực, vui vẻ cả ngày",
-                        "Có xáo trộn nhỏ ở đầu ngày, nhanh chóng cân bằng",
-                        "Cần sự can thiệp và hỗ trợ nhiều từ cô",
-                        "Cần lưu ý đặc biệt / Có biểu hiện bùng nổ cảm xúc"
-                    ])
-                with col_d2:
-                    daily_summary = st.text_input("💬 Nhận xét ngắn gọn của giáo viên:", placeholder="Nhận xét tổng quát về sự tiến bộ hay tâm trạng của bé...")
                 
-                st.write("")
-                if st.button("💾 LƯU HỒ SƠ CẢM XÚC HẰNG NGÀY (LÊN GOOGLE SHEETS)"):
-                    emotions_summary_list = []
-                    details_dict = {}
-                    
-                    for idx, row in edited_routine_df.iterrows():
-                        act_name = row["Hoạt động"]
-                        active_emos = [e_col for e_col in EMOTION_COLS if row[e_col] == True]
-                        act_note = str(row["Ghi chú chi tiết"]).strip()
+                with st.form(key=f"daily_form_{dynamic_prefix}"):
+                    col_o1, col_o2 = st.columns(2)
+                    with col_o1:
+                        note_context = st.text_area("📌 Bối cảnh và biểu hiện nổi bật:", placeholder="Mô tả cụ thể hành vi, cử chỉ hay bối cảnh xảy ra cảm xúc...", key=f"context_{dynamic_prefix}")
+                    with col_o2:
+                        note_intervention = st.text_area("🤝 Can thiệp và hỗ trợ của giáo viên:", placeholder="Ghi lại hành động dỗ dành, ôm, hỏi gợi mở hay góc bình tĩnh cô đã dùng...", key=f"intervention_{dynamic_prefix}")
                         
-                        if active_emos or act_note:
-                            e_str = ", ".join(active_emos) if active_emos else "Ghi chú"
-                            emotions_summary_list.append(f"{act_name}: {e_str}" + (f" ({act_note})" if act_note else ""))
+                    st.markdown("---")
+                    st.markdown("#### 3. Đánh giá & Nhận xét cuối ngày")
+                    col_d1, col_d2 = st.columns(2)
+                    with col_d1:
+                        daily_trend = st.selectbox("📈 Xu hướng cảm xúc trong ngày:", [
+                            "Duy trì cảm xúc tích cực, vui vẻ cả ngày",
+                            "Có xáo trộn nhỏ ở đầu ngày, nhanh chóng cân bằng",
+                            "Cần sự can thiệp và hỗ trợ nhiều từ cô",
+                            "Cần lưu ý đặc biệt / Có biểu hiện bùng nổ cảm xúc"
+                        ], key=f"trend_{dynamic_prefix}")
+                    with col_d2:
+                        daily_summary = st.text_area("💬 Nhận xét tự do của giáo viên:", placeholder="Cô tự do ghi chú thêm bất kỳ nhận xét hay lưu ý cá nhân nào về bé trong ngày...", key=f"summary_{dynamic_prefix}")
+                    
+                    st.write("")
+                    btn_save_daily = st.form_submit_button("💾 LƯU HỒ SƠ CẢM XÚC HẰNG NGÀY (HOẶC NHẤN ENTER)")
+                    
+                    if btn_save_daily:
+                        emotions_summary_list = []
+                        details_dict = {}
                         
-                        details_dict[act_name] = {
-                            "emotions": active_emos,
-                            "note": act_note
-                        }
-                    
-                    full_emotions_str = " | ".join(emotions_summary_list) if emotions_summary_list else "Bình thường ở tất cả hoạt động"
-                    json_str = json.dumps(details_dict, ensure_ascii=False)
-                    
-                    new_log = pd.DataFrame([{
-                        "Teacher": user_info['name'],
-                        "Campus": user_info['campus'],
-                        "Class": user_info.get('class_name', 'Mầm'),
-                        "Student": std_select,
-                        "Date": str(log_date),
-                        "Routine": "Toàn bộ hoạt động trong ngày",
-                        "Emotions": full_emotions_str,
-                        "Note": note_context,
-                        "Intervention": note_intervention,
-                        "Summary": f"[{daily_trend}] {daily_summary}",
-                        "Details_JSON": json_str
-                    }])
-                    
-                    st.session_state.daily_logs_df = pd.concat([st.session_state.daily_logs_df, new_log], ignore_index=True)
-                    save_sheet_to_gas("DailyLogs", st.session_state.daily_logs_df)
-                    st.success(f"🎉 Đã lưu vĩnh viễn Hồ sơ cảm xúc ngày {log_date} cho bé **{std_select}** lên Google Sheets!")
-                    st.rerun()
+                        for idx, row in edited_routine_df.iterrows():
+                            act_name = row["Hoạt động"]
+                            active_emos = [e_col for e_col in EMOTION_COLS if row[e_col] == True]
+                            act_level = str(row["Mức độ phản ứng"])
+                            act_note = str(row["Ghi chú chi tiết"]).strip()
+                            
+                            if active_emos or act_note or act_level != "Mức 3 - Tự cân bằng khi cô nhắc":
+                                e_str = ", ".join(active_emos) if active_emos else "Ghi nhận"
+                                level_tag = act_level.split(" - ")[0]
+                                emotions_summary_list.append(f"{act_name}: {e_str} [{level_tag}]" + (f" ({act_note})" if act_note else ""))
+                            
+                            details_dict[act_name] = {
+                                "emotions": active_emos,
+                                "level": act_level,
+                                "note": act_note
+                            }
+                        
+                        full_emotions_str = " | ".join(emotions_summary_list) if emotions_summary_list else "Bình thường ở tất cả hoạt động"
+                        json_str = json.dumps(details_dict, ensure_ascii=False)
+                        
+                        new_log = pd.DataFrame([{
+                            "Teacher": user_info['name'],
+                            "Campus": user_info['campus'],
+                            "Class": user_info.get('class_name', 'Mầm'),
+                            "Student": std_select,
+                            "Date": str(log_date),
+                            "Routine": "Toàn bộ hoạt động trong ngày",
+                            "Emotions": full_emotions_str,
+                            "Note": note_context,
+                            "Intervention": note_intervention,
+                            "Summary": f"[{daily_trend}] {daily_summary}",
+                            "Details_JSON": json_str
+                        }])
+                        
+                        st.session_state.daily_logs_df = pd.concat([st.session_state.daily_logs_df, new_log], ignore_index=True)
+                        save_sheet_to_gas("DailyLogs", st.session_state.daily_logs_df)
+                        st.success(f"🎉 Đã lưu vĩnh viễn Hồ sơ cảm xúc ngày {log_date} cho bé **{std_select}** lên Google Sheets!")
+                        st.rerun()
 
             st.markdown("---")
             st.markdown("##### 📋 LỊCH SỬ HỒ SƠ CẢM XÚC ĐÃ LƯU CỦA LỚP")
-            my_logs = st.session_state.daily_logs_df[st.session_state.daily_logs_df['Teacher'] == user_info['name']]
+            my_logs = st.session_state.daily_logs_df[st.session_state.daily_logs_df['Teacher'] == user_info['name']] if not st.session_state.daily_logs_df.empty else pd.DataFrame()
             if not my_logs.empty:
                 st.dataframe(my_logs[['Date', 'Student', 'Emotions', 'Note', 'Intervention', 'Summary']], use_container_width=True)
             else:
                 st.info("Chưa có hồ sơ cảm xúc hằng ngày nào được lưu.")
 
         # ---------------------------------------------------------------------
-        # 🎯 3. ĐÁNH GIÁ EQ 6 TIÊU CHÍ CHUẨN
+        # 🎯 3. ĐÁNH GIÁ EQ 6 TIÊU CHÍ (TÍCH HỢP TRỢ LÝ MINH CHỨNG & BỘ TIÊU CHÍ)
         # ---------------------------------------------------------------------
         elif main_menu == "🎯 3. Đánh giá EQ 6 Tiêu chí":
-            st.subheader("🎯 ĐÁNH GIÁ EQ 6 TIÊU CHÍ CHUẨN")
-            st.caption("Căn cứ theo Bảng Tiêu Chí EQ Chuẩn Hóa Toàn Trường (Mức 1 - Mức 4)")
+            st.subheader("🎯 ĐÁNH GIÁ EQ 6 TIÊU CHÍ CHUẨN MẪU")
+            st.caption("Căn cứ theo Bảng Tiêu Chí EQ Chuẩn Hóa Toàn Trường & Lịch Sử Minh Chứng Hằng Ngày")
             
             my_stds = st.session_state.students_df[st.session_state.students_df['teacher_user'] == user_key]['student_name'].tolist()
             if not my_stds: st.warning("⚠️ Lớp bạn chưa có học sinh.")
             else:
-                col_e1, col_e2 = st.columns(2)
+                col_e1, col_e2, col_e3 = st.columns([1.5, 1.5, 1])
                 with col_e1: std_eval = st.selectbox("Chọn học sinh:", my_stds)
                 with col_e2: 
                     eval_month = st.selectbox("Chọn Tháng đánh giá:", [f"Tháng {m}" for m in range(1, 13)], index=5)
                     term = f"{eval_month} / Kỳ {1 if int(eval_month.replace('Tháng ', '')) <= 6 else 2}"
+                with col_e3:
+                    age_group = st.selectbox("Chọn Nhóm tuổi của bé:", ["3-4 tuổi", "4-5 tuổi", "5-6 tuổi"], index=1)
                 
+                # --- TRỢ LÝ MINH CHỨNG TỔNG HỢP TỪ NHẬT KÝ CẢM XÚC THÁNG ---
                 st.markdown("---")
+                with st.expander(f"🔍 TRỢ LÝ MINH CHỨNG CẢM XÚC THÁNG CỦA BÉ {std_eval.upper()} (TỰ ĐỘNG GOM TỪ NHẬT KÝ HẰNG NGÀY)", expanded=True):
+                    std_logs = st.session_state.daily_logs_df[
+                        (st.session_state.daily_logs_df['Student'] == std_eval) & 
+                        (st.session_state.daily_logs_df['Teacher'] == user_info['name'])
+                    ] if not st.session_state.daily_logs_df.empty else pd.DataFrame()
+                    
+                    if not std_logs.empty:
+                        col_ev1, col_ev2 = st.columns([1, 2])
+                        with col_ev1:
+                            st.markdown(f"**📊 Tổng số ngày có ghi nhận nhật ký:** `{len(std_logs)} ngày`")
+                            all_emos_str = " ".join(std_logs['Emotions'].dropna().tolist())
+                            m1_cnt = all_emos_str.count("[Mức 1]")
+                            m2_cnt = all_emos_str.count("[Mức 2]")
+                            m3_cnt = all_emos_str.count("[Mức 3]")
+                            m4_cnt = all_emos_str.count("[Mức 4]")
+                            st.write(f"- 🔴 **Mức 1 (Bùng nổ/Ăn vạ):** {m1_cnt} lần")
+                            st.write(f"- 🟡 **Mức 2 (Cần cô dỗ):** {m2_cnt} lần")
+                            st.write(f"- 🟢 **Mức 3 (Tự cân bằng khi nhắc):** {m3_cnt} lần")
+                            st.write(f"- 🔵 **Mức 4 (Tự chủ/Góc bình tĩnh):** {m4_cnt} lần")
+                        with col_ev2:
+                            st.markdown("**📌 Bối cảnh & Can thiệp nổi bật gần đây:**")
+                            for idx_l, row_l in std_logs.tail(3).iterrows():
+                                st.markdown(f"- *Ngày {row_l['Date']}:* {row_l['Emotions']} | **Bối cảnh:** {row_l['Note']} | **Can thiệp:** {row_l['Intervention']}")
+                    else:
+                        st.info(f"Chưa có dữ liệu nhật ký hằng ngày cho bé {std_eval} trong tháng này. Bạn vẫn có thể thực hiện đánh giá độc lập bên dưới.")
+
+                # --- BẢNG TRA CỨU BỘ TIÊU CHÍ CHUẨN ---
+                with st.expander(f"📚 BẢNG TRA CỨU BỘ TIÊU CHÍ EQ CHUẨN NHÓM {age_group.upper()} (MỨC 1 - MỨC 4)", expanded=False):
+                    tc_dict = CRITERIA_DATA.get(age_group, {})
+                    for tc_code, tc_levels in tc_dict.items():
+                        st.markdown(f"**{tc_code}:**")
+                        for lvl, desc in tc_levels.items():
+                            st.write(f"- **Mức {lvl}:** {desc}")
+
+                st.markdown("---")
+                st.markdown("#### 📝 ĐÁNH GIÁ 6 TIÊU CHÍ EQ (KÉO CHỌN MỨC 1 - MỨC 4)")
+                st.caption("Hiển thị mô tả minh chứng chuẩn tương ứng bên dưới từng thanh slider")
+                
+                curr_age_crit = CRITERIA_DATA.get(age_group, CRITERIA_DATA["4-5 tuổi"])
+                
                 c1, c2 = st.columns(2)
                 with c1:
-                    tc1 = st.slider("TC1: Nhận biết cảm xúc bản thân", 1, 4, 2, help="1: Bộc phát | 2: Nhận biết có điều kiện | 3: Tự nhận biết - hỗ trợ nhẹ | 4: Chủ động & ổn định")
-                    tc2 = st.slider("TC2: Gọi tên và diễn đạt cảm xúc", 1, 4, 2, help="1: Phản ứng sinh lý | 2: Gọi tên 1 từ | 3: Nói câu đơn định danh | 4: Diễn đạt + nguyên nhân")
-                    tc3 = st.slider("TC3: Điều chỉnh và kiểm soát cảm xúc", 1, 4, 2, help="1: Bùng nổ >5p | 2: Bình tĩnh khi cô ôm | 3: Tự trấn an theo lời nhắc | 4: Tự tìm góc bình tĩnh")
+                    tc1 = st.slider("TC1: Nhận biết cảm xúc bản thân", 1, 4, 2, key="slider_tc1")
+                    st.caption(f"💡 *Mô tả Mức {tc1}:* {curr_age_crit['TC1'][tc1]}")
+                    
+                    tc2 = st.slider("TC2: Gọi tên và diễn đạt cảm xúc", 1, 4, 2, key="slider_tc2")
+                    st.caption(f"💡 *Mô tả Mức {tc2}:* {curr_age_crit['TC2'][tc2]}")
+                    
+                    tc3 = st.slider("TC3: Điều chỉnh và kiểm soát cảm xúc", 1, 4, 2, key="slider_tc3")
+                    st.caption(f"💡 *Mô tả Mức {tc3}:* {curr_age_crit['TC3'][tc3]}")
+                    
                 with c2:
-                    tc4 = st.slider("TC4: Đồng cảm và quan hệ xã hội", 1, 4, 2, help="1: Thờ ơ | 2: Quan sát bạn khóc | 3: Cử chỉ an ủi sơ khai | 4: Chủ động rủ bạn chơi/chia sẻ")
-                    tc5 = st.slider("TC5: Ảnh hưởng môi trường đến cảm xúc", 1, 4, 3, help="1: Phụ thuộc hoàn toàn | 2: Phụ thuộc sự quen thuộc | 3: Thích nghi có điều kiện | 4: Ít bị ảnh hưởng tiêu cực")
-                    tc6 = st.slider("TC6: Phản ứng khi cảm xúc được công nhận", 1, 4, 3, help="1: Lảng tránh/ăn vạ tiếp | 2: Dịu lại nhưng chưa hợp tác | 3: Hợp tác sau khi được dỗ | 4: Tự giải tỏa & chủ động")
+                    tc4 = st.slider("TC4: Đồng cảm và quan hệ xã hội", 1, 4, 2, key="slider_tc4")
+                    st.caption(f"💡 *Mô tả Mức {tc4}:* {curr_age_crit['TC4'][tc4]}")
+                    
+                    tc5 = st.slider("TC5: Ảnh hưởng môi trường đến cảm xúc", 1, 4, 3, key="slider_tc5")
+                    st.caption(f"💡 *Mô tả Mức {tc5}:* {curr_age_crit['TC5'][tc5]}")
+                    
+                    tc6 = st.slider("TC6: Phản ứng khi cảm xúc được công nhận", 1, 4, 3, key="slider_tc6")
+                    st.caption(f"💡 *Mô tả Mức {tc6}:* {curr_age_crit['TC6'][tc6]}")
                     
                 peq = round((tc1 + tc2 + tc3 + tc4 + tc5 + tc6) / 6.0, 2)
                 group_clean = "DUY TRÌ" if peq >= 3.2 else ("CẦN CẢI THIỆN" if peq >= 2.0 else "HỖ TRỢ ĐẶC BIỆT")
                 
                 st.markdown("---")
-                col_m1, col_m2 = st.columns([1, 4])
+                col_m1, col_m2 = st.columns(2)
                 with col_m1:
                     st.metric("Điểm EQ Tổng hợp (PEQ):", peq, delta=f"Nhóm: {group_clean}")
                 with col_m2:
                     st.info(f"📌 **Phân nhóm trạng thái:** `{group_clean}`\n\n*(PEQ ≥ 3.2: Duy trì phong độ | 2.0 ≤ PEQ < 3.2: Cần cải thiện | PEQ < 2.0: Hỗ trợ đặc biệt)*")
                 
-                context_input = st.text_area("Bối cảnh / Minh chứng điển hình (Hành vi cụ thể):", value=f"{std_eval} thường...")
-                conclusion_input = st.text_area("Kết luận xu hướng phát triển:", value=f"Xu hướng của {std_eval}...")
-                plan_input = st.text_area("Kế hoạch tác động tiếp theo:", value=f"Hướng dẫn {std_eval}...")
+                context_input = st.text_area("Bối cảnh / Minh chứng điển hình (Hành vi cụ thể):", value=f"Dựa trên theo dõi tháng, bé {std_eval} thường...")
+                conclusion_input = st.text_area("Kết luận xu hướng phát triển:", value=f"Xu hướng của bé {std_eval}...")
+                plan_input = st.text_area("Kế hoạch tác động tiếp theo:", value=f"Hướng dẫn bé {std_eval}...")
                 
                 if st.button("💾 Lưu Bảng Đánh Giá EQ (Lên Google Sheets)"):
                     new_eval = pd.DataFrame([{
@@ -873,15 +1089,12 @@ else:
 
             st.markdown("---")
             st.markdown("##### 📋 DỮ LIỆU SO SÁNH XU HƯỚNG HIỆN CÓ CỦA LỚP")
-            my_comps = st.session_state.comparisons_df[st.session_state.comparisons_df['Teacher'] == user_info['name']]
-            if not my_comps.empty:
-                df_comp_exp = format_comparisons_export(my_comps)
-                st.dataframe(df_comp_exp, use_container_width=True)
-                
-                st.markdown("##### 📊 THỐNG KÊ TỈ LỆ % PHÂN BỔ TOÀN LỚP (KỲ 1 VS KỲ 2)")
-                st.table(calculate_class_stats(my_comps))
-            else:
-                st.info("Chưa có dữ liệu so sánh xu hướng EQ nào.")
+            my_comps = st.session_state.comparisons_df[st.session_state.comparisons_df['Teacher'] == user_info['name']] if not st.session_state.comparisons_df.empty else pd.DataFrame()
+            df_comp_exp = format_comparisons_export(my_comps)
+            st.dataframe(df_comp_exp, use_container_width=True)
+            
+            st.markdown("##### 📊 THỐNG KÊ TỈ LỆ % PHÂN BỔ TOÀN LỚP (KỲ 1 VS KỲ 2)")
+            st.table(calculate_class_stats(my_comps))
 
         # ---------------------------------------------------------------------
         # 📊 5. BÁO CÁO & XUẤT FILE LỚP (EXCEL / CSV CHUẨN CỘT MẪU)
@@ -892,38 +1105,38 @@ else:
             tab_rep1, tab_rep2 = st.tabs(["📋 1. Bảng Kết Quả Đánh Giá EQ (6 Tiêu Chí)", "📈 2. Bảng So Sánh Xu Hướng EQ (2 Kỳ)"])
             
             with tab_rep1:
-                my_evals = st.session_state.evaluations_df[st.session_state.evaluations_df['Teacher'] == user_info['name']]
+                my_evals = st.session_state.evaluations_df[st.session_state.evaluations_df['Teacher'] == user_info['name']] if not st.session_state.evaluations_df.empty else pd.DataFrame()
+                df_eval_export = format_evaluations_export(my_evals)
+                st.dataframe(df_eval_export, use_container_width=True)
+                
                 if not my_evals.empty:
-                    df_eval_export = format_evaluations_export(my_evals)
-                    st.dataframe(df_eval_export, use_container_width=True)
-                    
                     render_eq_charts(my_evals, f"Lớp {user_info.get('class_name', '')}")
-                    
-                    st.download_button(
-                        "📥 XUẤT FILE EXCEL/CSV BẢNG TỔNG HỢP EQ CHUẨN MẪU",
-                        df_eval_export.to_csv(index=False).encode('utf-8-sig'),
-                        f"Bang_Tong_Hop_EQ_Lop_{user_info.get('class_name', '')}.csv",
-                        "text/csv"
-                    )
                 else:
-                    st.info("Chưa có dữ liệu đánh giá EQ cho lớp này.")
+                    st.info("ℹ️ Lớp chưa có dữ liệu đánh giá EQ chính thức. Bạn vẫn có thể tải Khung Báo Cáo Mẫu (.csv) bên dưới.")
+                    
+                st.download_button(
+                    "📥 XUẤT FILE EXCEL/CSV BẢNG TỔNG HỢP EQ CHUẨN MẪU",
+                    df_eval_export.to_csv(index=False).encode('utf-8-sig'),
+                    f"Bang_Tong_Hop_EQ_Lop_{user_info.get('class_name', '')}.csv",
+                    "text/csv"
+                )
 
             with tab_rep2:
-                my_comps = st.session_state.comparisons_df[st.session_state.comparisons_df['Teacher'] == user_info['name']]
+                my_comps = st.session_state.comparisons_df[st.session_state.comparisons_df['Teacher'] == user_info['name']] if not st.session_state.comparisons_df.empty else pd.DataFrame()
+                df_comp_export = format_comparisons_export(my_comps)
+                st.dataframe(df_comp_export, use_container_width=True)
+                
+                st.markdown("##### 📊 Bảng Thống Kê Thay Đổi Chỉ Số Tỉ Lệ % Toàn Lớp")
+                st.table(calculate_class_stats(my_comps))
+                
                 if not my_comps.empty:
-                    df_comp_export = format_comparisons_export(my_comps)
-                    st.dataframe(df_comp_export, use_container_width=True)
-                    
-                    st.markdown("##### 📊 Bảng Thống Kê Thay Đổi Chỉ Số Tỉ Lệ % Toàn Lớp")
-                    st.table(calculate_class_stats(my_comps))
-                    
                     render_comparison_charts(my_comps, f"Lớp {user_info.get('class_name', '')}")
-                    
-                    st.download_button(
-                        "📥 XUẤT FILE EXCEL/CSV BẢNG XU HƯỚNG EQ CHUẨN MẪU",
-                        df_comp_export.to_csv(index=False).encode('utf-8-sig'),
-                        f"Bang_Xu_Huong_EQ_Lop_{user_info.get('class_name', '')}.csv",
-                        "text/csv"
-                    )
                 else:
-                    st.info("Chưa có dữ liệu so sánh xu hướng EQ cho lớp này.")
+                    st.info("ℹ️ Lớp chưa có dữ liệu so sánh xu hướng EQ. Bạn vẫn có thể tải Khung Báo Cáo Mẫu (.csv) bên dưới.")
+                    
+                st.download_button(
+                    "📥 XUẤT FILE EXCEL/CSV BẢNG XU HƯỚNG EQ CHUẨN MẪU",
+                    df_comp_export.to_csv(index=False).encode('utf-8-sig'),
+                    f"Bang_Xu_Huong_EQ_Lop_{user_info.get('class_name', '')}.csv",
+                    "text/csv"
+                )
