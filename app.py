@@ -938,7 +938,7 @@ else:
                 if btn_class:
                     user_idx = st.session_state.users_df[st.session_state.users_df['username'] == user_key].index
                     if not user_idx.empty:
-                        st.session_state.users_df.at[user_idx, "class_name"] = custom_class_name
+                        st.session_state.users_df.loc[user_idx, "class_name"] = custom_class_name  # 👈 Đã đổi thành .loc
                         save_sheet_to_gas("Users", st.session_state.users_df)
                         st.success(f"🎉 Đã lưu tên lớp: **{custom_class_name}**")
                         st.rerun()
