@@ -192,7 +192,7 @@ CRITERIA_DATA = {
             3: "Mức 3: Có sự bình tĩnh, chủ động đề xuất để giải quyết tình huống ('tự đi lấy khăn lau nước mắt, chủ động ra bắt tay làm hòa với bạn, hoặc tiếp tục hoàn thành bài vẽ dở') khi được công nhận cảm xúc.",
             4: "Mức 4: Hiểu về nguyên nhân - kết quả của hành vi, cảm xúc bản thân và đưa lời hứa để không lặp lại cảm xúc trên."
         }
-    },
+    },llo
     "Pre-primary (5-6 tuổi)": {
         "TC1": {
             1: "Mức 1: Có khả năng định danh được những sắc thái cảm xúc phức tạp và không ăn vạ thô sơ. Chỉ nói được cảm xúc, sắc thái một cách chung chung, chưa gọi tên được cảm xúc thực tế.",
@@ -610,7 +610,7 @@ def render_eq_charts(eval_df, title_prefix=""):
 # -----------------------------------------------------------------------------
 head_col1, head_col2 = st.columns([1.2, 3.8])
 with head_col1:
-    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=220)
+    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=330)
     else: st.write("☀️ **THE FIRST ACADEMY**")
 with head_col2:
     st.markdown("""
@@ -636,7 +636,6 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
-        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=260)
         
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
