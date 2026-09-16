@@ -13,6 +13,24 @@ GAS_URL = "https://script.google.com/macros/s/AKfycbyLmKWVgiMnLk94OL1bjAVROT0jl-
 # -----------------------------------------------------------------------------
 # 1. CẤU HÌNH TRANG & GIAO DIỆN VÀNG - TRẮNG - XÁM (TFA BRAND)
 # -----------------------------------------------------------------------------
+import streamlit as st
+import pandas as pd
+import requests
+import os
+import json
+from datetime import datetime
+import plotly.express as px
+import plotly.graph_objects as go
+
+# -----------------------------------------------------------------------------
+# 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL MỚI CỦA BẠN
+# -----------------------------------------------------------------------------
+GAS_URL = "https://script.google.com/macros/s/AKfycbyLmKWVgiMnLk94OL1bjAVROT0jl-JhplqFmm1jpvIJMqZnUfzJUirRQMfyJsjgX34cPQ/exec"
+
+# -----------------------------------------------------------------------------
+# 1. CẤU HÌNH TRANG & GIAO DIỆN VÀNG - TRẮNG - XÁM (TFA BRAND)
+# (Lệnh Streamlit duy nhất đặt ngay đầu file)
+# -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="The FIRST Academy - Hệ Thống Quản Lý Cảm Xúc EQ",
     layout="wide",
