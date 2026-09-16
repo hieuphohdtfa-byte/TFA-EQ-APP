@@ -84,12 +84,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. KHỜI TẠO CẤU TRÚC KHỐI LỚP (BỎ TODDLER) & BỘ TIÊU CHÍ EQ 3 NHÓM TUỔI
+# 2. KHỜI TẠO CẤU TRÚC KHỐI LỚP & BỘ TIÊU CHÍ EQ 3 NHÓM TUỔI
 # -----------------------------------------------------------------------------
 CAMPUS_MAP = {
     "HD": "Cơ sở TFA Hà Đô (Phường Cát Lái, TP.HCM)",
     "HL": "Cơ sở TFA Him Lam (Phường Tân Hưng, Quận 7, TP.HCM)",
-    "DBM": "Cơ sở TFA Dương Bạch Mai (Quận 8, TP.HCM)",
+    "DBM": "Cơ sở TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)",
     "LVS": "Cơ sở TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)",
     "TTL": "Cơ sở TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)"
 }
@@ -289,6 +289,123 @@ def get_users_dict():
     return u_dict
 
 # -----------------------------------------------------------------------------
+# 🤖 THUẬT TOÁN MA TRẬN TỰ ĐỘNG "NHẶT" MINH CHỨNG VÀO 6 TIÊU CHÍ EQ
+# -----------------------------------------------------------------------------
+def auto_map_daily_to_criteria(student_name, teacher_name, daily_df):
+    if daily_df is None or daily_df.empty:
+        return None
+    
+    std_logs = daily_df[(daily_df['Student'] == student_name) & (daily_df['Teacher'] == teacher_name)]
+    if std_logs.empty:
+        return None
+        
+    m1_cnt = 0
+    m2_cnt = 0
+    m3_cnt = 0
+    m4_cnt = 0
+    
+    tc5_levels = [] # Thích ứng môi trường (Đón/Trả/Tình huống)
+    tc4_levels = [] # Đồng cảm / Xã hội (Hoạt động nhóm)
+    tc6_levels = [] # Phản ứng khi cô công nhận
+    
+    context_evidences = []
+    
+    for _, row in std_logs.iterrows():
+        emotions_text = str(row.get('Emotions', ''))
+        note = str(row.get('Note', '')).strip()
+        interv = str(row.get('Intervention', '')).strip()
+        dt_str = str(row.get('Date', ''))
+        
+        c_m1 = emotions_text.count("[Mức 1]")
+        c_m2 = emotions_text.count("[Mức 2]")
+        c_m3 = emotions_text.count("[Mức 3]")
+        c_m4 = emotions_text.count("[Mức 4]")
+        
+        m1_cnt += c_m1
+        m2_cnt += c_m2
+        m3_cnt += c_m3
+        m4_cnt += c_m4
+        
+        if "Đón trẻ" in emotions_text or "Trả trẻ" in emotions_text or "Tình huống phát sinh" in emotions_text:
+            if c_m1 > 0: tc5_levels.append(1)
+            elif c_m2 > 0: tc5_levels.append(2)
+            elif c_m4 > 0: tc5_levels.append(4)
+            else: tc5_levels.append(3)
+            
+        if "Hoạt động chiều" in emotions_text or "Hoạt động có chủ đích" in emotions_text:
+            if c_m4 > 0: tc4_levels.append(4)
+            elif c_m1 > 0: tc4_levels.append(1)
+            elif c_m2 > 0: tc4_levels.append(2)
+            else: tc4_levels.append(3)
+            
+        if interv:
+            if "ngoan" in interv.lower() or "dịu" in interv.lower() or "hợp tác" in interv.lower() or "vui" in interv.lower():
+                tc6_levels.append(3 if c_m1 == 0 else 4)
+            elif "khóc" in interv.lower() or "hờn" in interv.lower():
+                tc6_levels.append(1 if c_m1 > 0 else 2)
+                
+        if note or interv or c_m1 > 0 or c_m4 > 0:
+            context_evidences.append(f"• {dt_str}: {emotions_text}" + (f" | Bối cảnh: {note}" if note else "") + (f" | Can thiệp: {interv}" if interv else ""))
+
+    # --- TÍNH TOÁN ĐIỂM TỰ ĐỘNG SUY LUẬN CHO 6 TIÊU CHÍ ---
+    total_obs = m1_cnt + m2_cnt + m3_cnt + m4_cnt
+    
+    # 1. TC3 (Kiểm soát cảm xúc) dựa vào tỷ lệ mức phản ứng thực tế
+    if total_obs > 0:
+        if m1_cnt / total_obs >= 0.3: auto_tc3 = 1
+        elif (m1_cnt + m2_cnt) / total_obs >= 0.4: auto_tc3 = 2
+        elif m4_cnt / total_obs >= 0.3: auto_tc3 = 4
+        else: auto_tc3 = 3
+    else: auto_tc3 = 3
+    
+    # 2. TC1 (Nhận biết) & TC2 (Diễn đạt)
+    if m1_cnt > m3_cnt + m4_cnt:
+        auto_tc1 = 1
+        auto_tc2 = 1
+    elif m2_cnt > m3_cnt + m4_cnt:
+        auto_tc1 = 2
+        auto_tc2 = 2
+    elif m4_cnt >= 2:
+        auto_tc1 = 4
+        auto_tc2 = 4
+    else:
+        auto_tc1 = 3
+        auto_tc2 = 3
+        
+    # 3. TC4 (Đồng cảm & Xã hội)
+    auto_tc4 = round(sum(tc4_levels) / len(tc4_levels)) if tc4_levels else (4 if m4_cnt > 0 else 3)
+    
+    # 4. TC5 (Thích ứng môi trường)
+    auto_tc5 = round(sum(tc5_levels) / len(tc5_levels)) if tc5_levels else (1 if m1_cnt > 3 else (2 if m2_cnt > 3 else 3))
+    
+    # 5. TC6 (Phản ứng khi cô công nhận)
+    auto_tc6 = round(sum(tc6_levels) / len(tc6_levels)) if tc6_levels else (2 if m1_cnt > 2 else 3)
+    
+    auto_peq = round((auto_tc1 + auto_tc2 + auto_tc3 + auto_tc4 + auto_tc5 + auto_tc6) / 6.0, 2)
+    auto_group = "DUY TRÌ" if auto_peq >= 3.2 else ("CẦN CẢI THIỆN" if auto_peq >= 2.0 else "HỖ TRỢ ĐẶC BIỆT")
+    
+    evidence_str = "\n".join(context_evidences[:4]) if context_evidences else "Bé sinh hoạt và học tập ổn định theo thời khóa biểu trong tháng."
+    
+    auto_context = f"Dựa trên {len(std_logs)} lượt ghi nhận hằng ngày:\n{evidence_str}"
+    
+    if auto_group == "DUY TRÌ":
+        auto_conclusion = f"Bé {student_name} có trí tuệ cảm xúc phát triển rất tích cực (PEQ={auto_peq}), thuộc nhóm DUY TRÌ PHONG ĐỘ. Bé tự chủ cảm xúc tốt và biết hòa nhập với bạn bè."
+        auto_plan = f"Kế hoạch: Tiếp tục phát huy năng lực tự chủ, giao vai trò thủ lĩnh nhóm và khuyến khích bé hỗ trợ các bạn khác trong lớp."
+    elif auto_group == "CẦN CẢI THIỆN":
+        auto_conclusion = f"Bé {student_name} đang trong quá trình phát triển cảm xúc (PEQ={auto_peq}), thuộc nhóm CẦN CẢI THIỆN. Đã có nhận thức nhưng còn bộc phát ở một số tình huống."
+        auto_plan = f"Kế hoạch: Hướng dẫn bé thực hành gọi tên cảm xúc, gợi ý sử dụng Góc bình tĩnh khi bé gặp khó khăn hoặc có xáo trộn."
+    else:
+        auto_conclusion = f"Bé {student_name} gặp nhiều khó khăn trong quản trị cảm xúc (PEQ={auto_peq}), thuộc nhóm HỖ TRỢ ĐẶC BIỆT. Bé dễ bùng nổ Mức 1 và cần sự đồng hành sát sao từ cô."
+        auto_plan = f"Kế hoạch: Thiết lập can thiệp 1-1, sử dụng kỹ thuật dỗ dành ôm xoa dịu, phối hợp chặt chẽ với phụ huynh để thống nhất phương pháp tại nhà."
+
+    return {
+        "TC1": auto_tc1, "TC2": auto_tc2, "TC3": auto_tc3,
+        "TC4": auto_tc4, "TC5": auto_tc5, "TC6": auto_tc6,
+        "P_EQ": auto_peq, "Group_Clean": auto_group,
+        "Context": auto_context, "Conclusion": auto_conclusion, "Plan": auto_plan
+    }
+
+# -----------------------------------------------------------------------------
 # 4. HÀM CHUẨN HÓA BẢNG XUẤT FILE EXCEL/CSV CHUẨN THEO MẪU
 # -----------------------------------------------------------------------------
 def format_evaluations_export(df):
@@ -364,8 +481,8 @@ def calculate_class_stats(df_comp):
         ])
     
     total_stds = len(df_comp)
-    s1 = pd.to_numeric(df_comp["Score_Term1"], errors='coerce').fillna(0) if "Score_Term1" in df_comp.columns else pd.Series([0]*total_stds)
-    s2 = pd.to_numeric(df_comp["Score_Term2"], errors='coerce').fillna(0) if "Score_Term2" in df_comp.columns else pd.Series([0]*total_stds)
+    s1 = pd.to_numeric(df_comp["Score_Term1"], errors='coerce').fillna(0) if "Score_Term1" in df_comp.columns else pd.Series(*total_stds)
+    s2 = pd.to_numeric(df_comp["Score_Term2"], errors='coerce').fillna(0) if "Score_Term2" in df_comp.columns else pd.Series(*total_stds)
     
     duy_tri_1 = (s1 >= 3.2).sum() / total_stds * 100
     duy_tri_2 = (s2 >= 3.2).sum() / total_stds * 100
@@ -506,6 +623,7 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
+        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=260)
         
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
@@ -653,7 +771,7 @@ else:
             st.dataframe(st.session_state.daily_logs_df, use_container_width=True)
 
     # =========================================================================
-    # VAI TRÒ 2: BGH TỪNG CƠ SỞ (CAMPUS ADMIN) - ĐÃ TỐI ƯU HÓA PHÍM ENTER TỰ ĐỘNG LƯU
+    # VAI TRÒ 2: BGH TỪNG CƠ SỞ (CAMPUS ADMIN)
     # =========================================================================
     elif role == "campus_admin":
         my_campus = user_info['campus']
@@ -791,7 +909,7 @@ else:
             )
 
     # =========================================================================
-    # VAI TRÒ 3: GIÁO VIÊN TỪNG LỚP - ĐÃ TỐI ƯU HÓA PHÍM ENTER THÊM HỌC SINH TỰ ĐỘNG LƯU
+    # VAI TRÒ 3: GIÁO VIÊN TỪNG LỚP
     # =========================================================================
     else:
         main_menu = st.sidebar.radio("DANH MỤC GIÁO VIÊN:", [
@@ -870,7 +988,7 @@ else:
                 st.info("Lớp chưa có học sinh nào. Hãy nhập tên bé ở ô phía trên nhé!")
 
         # ---------------------------------------------------------------------
-        # 📝 2. NHẬT KÝ CẢM XÚC HẰNG NGÀY (THIẾT KẾ DYNAMIC KEYS + FIX TRIỆT ĐỂ BỤC ĐỌNG CHỮ)
+        # 📝 2. NHẬT KÝ CẢM XÚC HẰNG NGÀY
         # ---------------------------------------------------------------------
         elif main_menu == "📝 2. Nhật ký Cảm xúc Hằng ngày":
             st.subheader("📋 HỒ SƠ CẢM XÚC CÁ NHÂN (HẰNG NGÀY)")
@@ -885,7 +1003,6 @@ else:
                 with col_s2: log_date = st.date_input("🗓️ Ngày theo dõi:", value=datetime.today())
                 with col_s3: st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
                 
-                # Dynamic key prefix để đảm bảo khi chuyển bé ô nhập trắng sạch 100%
                 dynamic_prefix = f"{std_select}_{log_date}"
                 
                 st.markdown("---")
@@ -1003,11 +1120,11 @@ else:
                 st.info("Chưa có hồ sơ cảm xúc hằng ngày nào được lưu.")
 
         # ---------------------------------------------------------------------
-        # 🎯 3. ĐÁNH GIÁ EQ 6 TIÊU CHÍ (TỰ ĐỘNG THEO LỚP & TRỢ LÝ MINH CHỨNG THÁNG)
+        # 🎯 3. ĐÁNH GIÁ EQ 6 TIÊU CHÍ (CÓ NÚT TỰ ĐỘNG TỔNG HỢP 1-CLICK TỪ NHẬT KÝ)
         # ---------------------------------------------------------------------
         elif main_menu == "🎯 3. Đánh giá EQ 6 Tiêu chí":
-            st.subheader("🎯 ĐÁNH GIÁ EQ 6 TIÊU CHÍ CHUẨN MẪU TỪNG KHỐI LỚP")
-            st.caption("Ứng dụng tự động chọn Bộ Tiêu Chí EQ khớp với Khối Lớp & Gom Minh Chứng Hằng Ngày")
+            st.subheader("🎯 ĐÁNH GIÁ EQ 6 TIÊU CHÍ (CÓ MA TRẬN NHẶT TỰ ĐỘNG THÔNG MINH)")
+            st.caption("Cô chỉ cần tích hằng ngày ➔ Bấm nút '⚡ TỰ ĐỘNG TỔNG HỢP' là hệ thống tự nhặt minh chứng vào đúng 6 tiêu chí!")
             
             my_stds = st.session_state.students_df[st.session_state.students_df['teacher_user'] == user_key]['student_name'].tolist()
             if not my_stds: st.warning("⚠️ Lớp bạn chưa có học sinh.")
@@ -1028,8 +1145,25 @@ else:
                     
                     st.success(f"📘 Bộ tiêu chí: **{curr_age_group}**")
                 
-                # --- TRỢ LÝ MINH CHỨNG TỔNG HỢP TỪ NHẬT KÝ CẢM XÚC THÁNG ---
+                # --- NÚT 1-CLICK TỰ ĐỘNG NHẶT MINH CHỨNG & ĐIỀN ĐIỂM ---
                 st.markdown("---")
+                if st.button("⚡ TỰ ĐỘNG TỔNG HỢP EQ THÁNG (1-CLICK TỪ NHẬT KÝ HẰNG NGÀY)"):
+                    mapped_res = auto_map_daily_to_criteria(std_eval, user_info['name'], st.session_state.daily_logs_df)
+                    if mapped_res:
+                        st.session_state[f"tc1_{std_eval}"] = mapped_res["TC1"]
+                        st.session_state[f"tc2_{std_eval}"] = mapped_res["TC2"]
+                        st.session_state[f"tc3_{std_eval}"] = mapped_res["TC3"]
+                        st.session_state[f"tc4_{std_eval}"] = mapped_res["TC4"]
+                        st.session_state[f"tc5_{std_eval}"] = mapped_res["TC5"]
+                        st.session_state[f"tc6_{std_eval}"] = mapped_res["TC6"]
+                        st.session_state[f"ctx_{std_eval}"] = mapped_res["Context"]
+                        st.session_state[f"cnc_{std_eval}"] = mapped_res["Conclusion"]
+                        st.session_state[f"pln_{std_eval}"] = mapped_res["Plan"]
+                        st.success(f"🎉 Đã tự động phân tích và nhặt minh chứng vào 6 tiêu chí cho bé **{std_eval}**!")
+                    else:
+                        st.warning(f"⚠️ Chưa tìm thấy nhật ký hằng ngày của bé {std_eval}. Đang dùng mức mặc định chuẩn lứa tuổi!")
+
+                # --- TRỢ LÝ MINH CHỨNG TỔNG HỢP TỪ NHẬT KÝ CẢM XÚC THÁNG ---
                 with st.expander(f"🔍 TRỢ LÝ MINH CHỨNG CẢM XÚC THÁNG CỦA BÉ {std_eval.upper()} (TỰ ĐỘNG GOM TỪ NHẬT KÝ HẰNG NGÀY)", expanded=True):
                     std_logs = st.session_state.daily_logs_df[
                         (st.session_state.daily_logs_df['Student'] == std_eval) & 
@@ -1058,36 +1192,43 @@ else:
 
                 st.markdown("---")
                 st.markdown(f"#### 📝 BẢNG ĐÁNH GIÁ 6 TIÊU CHÍ EQ NHÓM {curr_age_group.upper()}")
-                st.caption("Bấm chọn mức điểm 1 - 4 phù hợp với minh chứng hằng ngày của bé")
+                st.caption("Hệ thống tự điền theo gợi ý hoặc Cô có thể tự tay điều chỉnh lại theo thực tế")
                 
                 curr_crit_map = CRITERIA_DATA.get(curr_age_group, CRITERIA_DATA["Kindergarten (4-5 tuổi)"])
                 
                 col_c1, col_c2 = st.columns(2)
                 
+                def_tc1 = st.session_state.get(f"tc1_{std_eval}", 3)
+                def_tc2 = st.session_state.get(f"tc2_{std_eval}", 3)
+                def_tc3 = st.session_state.get(f"tc3_{std_eval}", 3)
+                def_tc4 = st.session_state.get(f"tc4_{std_eval}", 3)
+                def_tc5 = st.session_state.get(f"tc5_{std_eval}", 3)
+                def_tc6 = st.session_state.get(f"tc6_{std_eval}", 3)
+                
                 with col_c1:
                     st.markdown("##### 1. TC1: Nhận biết cảm xúc bản thân")
-                    tc1_val = st.radio("Chọn Mức cho TC1:", [1, 2, 3, 4], format_func=lambda x: f"Mức {x}", key="radio_tc1", horizontal=True)
+                    tc1_val = st.radio("Chọn Mức cho TC1:", [1, 2, 3, 4], index=def_tc1-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc1_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC1'][tc1_val]}")
                     
                     st.markdown("##### 2. TC2: Gọi tên và diễn đạt cảm xúc")
-                    tc2_val = st.radio("Chọn Mức cho TC2:", [1, 2, 3, 4], format_func=lambda x: f"Mức {x}", key="radio_tc2", horizontal=True)
+                    tc2_val = st.radio("Chọn Mức cho TC2:", [1, 2, 3, 4], index=def_tc2-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc2_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC2'][tc2_val]}")
                     
                     st.markdown("##### 3. TC3: Điều chỉnh và kiểm soát cảm xúc")
-                    tc3_val = st.radio("Chọn Mức cho TC3:", [1, 2, 3, 4], format_func=lambda x: f"Mức {x}", key="radio_tc3", horizontal=True)
+                    tc3_val = st.radio("Chọn Mức cho TC3:", [1, 2, 3, 4], index=def_tc3-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc3_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC3'][tc3_val]}")
 
                 with col_c2:
                     st.markdown("##### 4. TC4: Đồng cảm và quan hệ xã hội")
-                    tc4_val = st.radio("Chọn Mức cho TC4:", [1, 2, 3, 4], format_func=lambda x: f"Mức {x}", key="radio_tc4", horizontal=True)
+                    tc4_val = st.radio("Chọn Mức cho TC4:", [1, 2, 3, 4], index=def_tc4-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc4_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC4'][tc4_val]}")
                     
                     st.markdown("##### 5. TC5: Ảnh hưởng môi trường đến cảm xúc")
-                    tc5_val = st.radio("Chọn Mức cho TC5:", [1, 2, 3, 4], format_func=lambda x: f"Mức {x}", key="radio_tc5", horizontal=True)
+                    tc5_val = st.radio("Chọn Mức cho TC5:", [1, 2, 3, 4], index=def_tc5-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc5_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC5'][tc5_val]}")
                     
                     st.markdown("##### 6. TC6: Phản ứng khi cảm xúc được công nhận")
-                    tc6_val = st.radio("Chọn Mức cho TC6:", [1, 2, 3, 4], format_func=lambda x: f"Mức {x}", key="radio_tc6", horizontal=True)
+                    tc6_val = st.radio("Chọn Mức cho TC6:", [1, 2, 3, 4], index=def_tc6-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc6_{std_eval}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC6'][tc6_val]}")
 
                 peq = round((tc1_val + tc2_val + tc3_val + tc4_val + tc5_val + tc6_val) / 6.0, 2)
@@ -1100,9 +1241,13 @@ else:
                 with col_m2:
                     st.info(f"📌 **Phân nhóm trạng thái:** `{group_clean}`\n\n*(PEQ ≥ 3.2: Duy trì phong độ | 2.0 ≤ PEQ < 3.2: Cần cải thiện | PEQ < 2.0: Hỗ trợ đặc biệt)*")
                 
-                context_input = st.text_area("Bối cảnh / Minh chứng điển hình (Hành vi cụ thể):", value=f"Dựa trên theo dõi tháng, bé {std_eval} có xu hướng...", key="context_eval_area")
-                conclusion_input = st.text_area("Kết luận xu hướng phát triển:", value=f"Bé {std_eval} thuộc nhóm {group_clean}, thể hiện sự...", key="conclusion_eval_area")
-                plan_input = st.text_area("Kế hoạch tác động tiếp theo:", value=f"Tiếp tục hỗ trợ bé {std_eval} thực hành góc bình tĩnh và khuyến khích...", key="plan_eval_area")
+                def_ctx = st.session_state.get(f"ctx_{std_eval}", f"Dựa trên theo dõi tháng, bé {std_eval} có xu hướng...")
+                def_cnc = st.session_state.get(f"cnc_{std_eval}", f"Bé {std_eval} thuộc nhóm {group_clean}, thể hiện sự...")
+                def_pln = st.session_state.get(f"pln_{std_eval}", f"Tiếp tục hỗ trợ bé {std_eval} thực hành góc bình tĩnh và khuyến khích...")
+                
+                context_input = st.text_area("Bối cảnh / Minh chứng điển hình (Hành vi cụ thể):", value=def_ctx, key=f"context_area_{std_eval}")
+                conclusion_input = st.text_area("Kết luận xu hướng phát triển:", value=def_cnc, key=f"conclusion_area_{std_eval}")
+                plan_input = st.text_area("Kế hoạch tác động tiếp theo:", value=def_pln, key=f"plan_area_{std_eval}")
                 
                 if st.button("💾 Lưu Bảng Đánh Giá EQ (Lên Google Sheets)"):
                     new_eval = pd.DataFrame([{
@@ -1118,7 +1263,7 @@ else:
                     st.rerun()
 
         # ---------------------------------------------------------------------
-        # 📈 4. BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ (SO SÁNH 2 ĐỢT/THÁNG)
+        # 📈 4. BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ
         # ---------------------------------------------------------------------
         elif main_menu == "📈 4. Bảng So Sánh & Xu Hướng EQ":
             st.subheader("📈 BẢNG SO SÁNH & XÁC NHẬN XU HƯỚNG PHÁT TRIỂN EQ")
@@ -1171,7 +1316,7 @@ else:
             st.table(calculate_class_stats(my_comps))
 
         # ---------------------------------------------------------------------
-        # 📊 5. BÁO CÁO & XUẤT FILE LỚP (EXCEL / CSV CHUẨN CỘT MẪU)
+        # 📊 5. BÁO CÁO & XUẤT FILE LỚP
         # ---------------------------------------------------------------------
         else:
             st.subheader("📊 BÁO CÁO TỔNG HỢP & XUẤT FILE ĐÁNH GIÁ EQ CỦA LỚP")
