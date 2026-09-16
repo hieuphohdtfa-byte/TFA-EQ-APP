@@ -84,14 +84,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. KHỜI TẠO CẤU TRÚC KHỐI LỚP (BỎ TODDLER) & BỘ TIÊU CHÍ EQ 3 NHÓM TUỔI
+# 2. KHỜI TẠO CẤU TRÚC KHỐI LỚP & BỘ TIÊU CHÍ EQ 3 NHÓM TUỔI
 # -----------------------------------------------------------------------------
 CAMPUS_MAP = {
     "HD": "Cơ sở TFA Hà Đô (Phường Cát Lái, TP.HCM)",
-    "TTL": "Cơ sở TFA Trần Thị Lý (Đà Nẵng)",
-    "DBM": "Cơ sở TFA Dương Bạch Mai (Quận 8, TP.HCM)",
     "HL": "Cơ sở TFA Him Lam (Phường Tân Hưng, Quận 7, TP.HCM)",
+    "DBM": "Cơ sở TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)",
     "LVS": "Cơ sở TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)"
+    "TTL": "Cơ sở TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)",
 }
 
 TFA_CLASSES = ["Pre-school (3-4 tuổi)", "Kindergarten (4-5 tuổi)", "Pre-primary (5-6 tuổi)"]
@@ -543,10 +543,10 @@ if st.session_state.logged_user is None:
         st.markdown("""
             <div>
                 <span class="campus-badge">🏢 TFA Hà Đô (Phường Cát Lái, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Quận 8, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Phường Chánh Hưng , TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Trần Thị Lý (Đà Nẵng)</span>
+                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)</span>
             </div>
         """, unsafe_allow_html=True)
 
