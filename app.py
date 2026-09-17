@@ -820,7 +820,7 @@ def render_eq_charts(eval_df, title_prefix=""):
 # -----------------------------------------------------------------------------
 head_col1, head_col2 = st.columns([1.2, 3.8])
 with head_col1:
-    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=220)
+    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=330)
     else: st.write("☀️ **THE FIRST ACADEMY**")
 with head_col2:
     st.markdown("""
@@ -846,7 +846,6 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
-        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=330)
         
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
