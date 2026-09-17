@@ -532,7 +532,7 @@ def normalize_comparisons_df(raw_rows):
 
 def load_all_from_gas():
     try:
-        res = requests.get(f"{GAS_URL}?action=read_all", allow_redirects=True, timeout=12)
+        res = requests.get(f"{GAS_URL}?action=read_all", allow_redirects=True, timeout=15)
         if res.status_code == 200:
             return res.json()
     except Exception:
@@ -542,7 +542,10 @@ def load_all_from_gas():
 def save_sheet_to_gas(sheet_name, df):
     """
     Gửi dữ liệu lên Google Apps Script Web App.
-    Xử lý thủ công chuyển hướng HTTP 302 để bảo toàn phương thức POST và Body payload.
+    Xử lý thủ công chuyển hướng HTTP 302/307:
+    Lưu ý: Sau khi POST đến GAS_URL, Google trả về 302/307 redirect tới script.googleusercontent.com.
+    Ta BẮT BUỘC dùng requests.get() để đọc kết quả từ URL redirect đó.
+    NẾU DÙNG requests.post() ĐẾN URL REDIRECT SẼ BỊ LỖI HTTP 405!
     """
     try:
         clean_df = df.fillna("").astype(str)
@@ -553,12 +556,14 @@ def save_sheet_to_gas(sheet_name, df):
             "rows": clean_df.to_dict(orient="records")
         }
         
-        # Lần 1: gửi request không tự chuyển hướng để bắt header Location 302
-        res = requests.post(GAS_URL, json=payload, allow_redirects=False, timeout=12)
+        # 1. Gửi POST tới Google Apps Script URL (allow_redirects=False để tự xử lý redirect)
+        res = requests.post(GAS_URL, json=payload, allow_redirects=False, timeout=15)
         
-        if res.status_code in (301, 302, 307, 308) and "Location" in res.headers:
+        # 2. Bắt URL chuyển hướng nếu có (301, 302, 303, 307, 308)
+        if res.status_code in (301, 302, 303, 307, 308) and "Location" in res.headers:
             redirect_url = res.headers["Location"]
-            res = requests.post(redirect_url, json=payload, allow_redirects=True, timeout=12)
+            # CHÚ Ý QUAN TRỌNG: Dùng GET để lấy kết quả từ script.googleusercontent.com (không dùng POST!)
+            res = requests.get(redirect_url, timeout=15)
             
         if res.status_code == 200:
             try:
@@ -1243,7 +1248,7 @@ else:
                     if not std_match.empty:
                         n_col = "student_note" if "student_note" in std_match.columns else "Student_Note"
                         if n_col in std_match.columns:
-                            std_note_info = str(std_match.iloc[0].get(n_col, '')).strip()
+                            std_note_info = str(std_match.iloc.get(n_col, '')).strip()
                         else:
                             std_note_info = ""
                         if std_note_info.lower() in ["nan", "none"]:
