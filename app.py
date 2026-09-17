@@ -21,6 +21,8 @@ def clean_key(val):
         return ""
     s = str(val).strip().lower()
     s = s.replace(".0", "")
+    if s in ["nan", "none"]:
+        return ""
     if s.startswith("0") and len(s) > 1:
         s = s[1:]
     return s
@@ -199,7 +201,7 @@ CRITERIA_DATA = {
     },
     "Kindergarten (4-5 tuổi)": {
         "TC1": {
-            1: "Mức 1: Nói được cảm xúc nhưng chưa giải thích được lý do bởi lấn át bởi những hành động. Giận/buồn/vui nhưng chỉ nói 'con không thích', 'Con thích' mà chưa hiểu và nói được lý do.",
+            1: "Mức 1: Nói được cảm xúc nhưng chưa giải thích được lý do bởi lấn áp bởi những hành động. Giận/buồn/vui nhưng chỉ nói 'con không thích', 'Con thích' mà chưa hiểu và nói được lý do.",
             2: "Mức 2: Xác nhận được lý do khi cô gợi ý câu hỏi nguyên nhân-kết quả. Có thể trả lời khi cô hỏi: 'Con buồn vì bạn lấy đồ chơi của con'.",
             3: "Mức 3: Chủ động sử dụng câu ghép để giải thích trạng thái: 'Con buồn vì bạn không chơi với con', 'Con vui vì thích bạn'.",
             4: "Mức 4: Nhận ra sớm cảm xúc, thông tin đến cô tự điều chỉnh hành vi, đưa giải pháp trước khi bộc phát: 'Con đang giận nên con muốn ngồi yên một chút', 'Muốn chia sẻ cùng bạn'."
@@ -530,7 +532,7 @@ def normalize_comparisons_df(raw_rows):
 
 def load_all_from_gas():
     try:
-        res = requests.get(f"{GAS_URL}?action=read_all", timeout=12)
+        res = requests.get(f"{GAS_URL}?action=read_all", allow_redirects=True, timeout=12)
         if res.status_code == 200:
             return res.json()
     except Exception:
@@ -538,16 +540,40 @@ def load_all_from_gas():
     return {}
 
 def save_sheet_to_gas(sheet_name, df):
+    """
+    Gửi dữ liệu lên Google Apps Script Web App.
+    Xử lý thủ công chuyển hướng HTTP 302 để bảo toàn phương thức POST và Body payload.
+    """
     try:
+        clean_df = df.fillna("").astype(str)
+        clean_df = clean_df.replace(["nan", "None", "NaN"], "")
         payload = {
             "action": "save_sheet",
             "sheet_name": sheet_name,
-            "rows": df.astype(str).to_dict(orient="records")
+            "rows": clean_df.to_dict(orient="records")
         }
-        res = requests.post(GAS_URL, json=payload, timeout=12)
-        return res.status_code == 200
+        
+        # Lần 1: gửi request không tự chuyển hướng để bắt header Location 302
+        res = requests.post(GAS_URL, json=payload, allow_redirects=False, timeout=12)
+        
+        if res.status_code in (301, 302, 307, 308) and "Location" in res.headers:
+            redirect_url = res.headers["Location"]
+            res = requests.post(redirect_url, json=payload, allow_redirects=True, timeout=12)
+            
+        if res.status_code == 200:
+            try:
+                res_data = res.json()
+                if isinstance(res_data, dict) and res_data.get("status") == "error":
+                    st.error(f"⚠️ Google Sheet báo lỗi: {res_data.get('message', 'Không thể ghi dữ liệu')}")
+                    return False
+            except Exception:
+                pass
+            return True
+        else:
+            st.error(f"⚠️ Google Sheet trả về mã lỗi HTTP: {res.status_code}")
+            return False
     except Exception as e:
-        st.error(f"⚠️ Lỗi đồng bộ Google Sheet: {e}")
+        st.error(f"⚠️ Lỗi kết nối Google Sheet: {e}")
         return False
 
 def init_app_data(force_reload=False):
@@ -786,7 +812,7 @@ def render_eq_charts(eval_df, title_prefix=""):
 # -----------------------------------------------------------------------------
 head_col1, head_col2 = st.columns([1.2, 3.8])
 with head_col1:
-    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=220)
+    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=330)
     else: st.write("☀️ **THE FIRST ACADEMY**")
 with head_col2:
     st.markdown("""
@@ -812,7 +838,6 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
-        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=260)
         
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
@@ -856,10 +881,10 @@ if st.session_state.logged_user is None:
         st.markdown("""
             <div>
                 <span class="campus-badge">🏢 TFA Hà Đô (Phường Cát Lái, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Quận 8, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Trần Thị Lý (Đà Nẵng)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -923,9 +948,9 @@ else:
                             "campus": CAMPUS_MAP[BGH_code], "class_name": "Tất cả", "status": "active"
                         }])
                         st.session_state.users_df = pd.concat([st.session_state.users_df, new_row], ignore_index=True)
-                        save_sheet_to_gas("Users", st.session_state.users_df)
-                        st.success(f"🎉 Đã lưu vĩnh viễn trên Google Sheets! TK: `{BGH_u}` | Mật khẩu: `{BGH_p}`")
-                        st.rerun()
+                        if save_sheet_to_gas("Users", st.session_state.users_df):
+                            st.success(f"🎉 Đã lưu vĩnh viễn trên Google Sheets! TK: `{BGH_u}` | Mật khẩu: `{BGH_p}`")
+                            st.rerun()
 
             st.markdown("---")
             st.dataframe(st.session_state.users_df, use_container_width=True)
@@ -1003,9 +1028,9 @@ else:
                                 "campus": my_campus, "class_name": t_class, "status": "active"
                             }])
                             st.session_state.users_df = pd.concat([st.session_state.users_df, new_row], ignore_index=True)
-                            save_sheet_to_gas("Users", st.session_state.users_df)
-                            st.success(f"🎉 Đã lưu vĩnh viễn giáo viên {t_name} trên Google Sheets! TK: `{gen_u}` | Mật khẩu: `123456`")
-                            st.rerun()
+                            if save_sheet_to_gas("Users", st.session_state.users_df):
+                                st.success(f"🎉 Đã lưu vĩnh viễn giáo viên {t_name} trên Google Sheets! TK: `{gen_u}` | Mật khẩu: `123456`")
+                                st.rerun()
                     else:
                         st.warning("⚠️ Vui lòng nhập đầy đủ Họ tên và Số điện thoại!")
 
@@ -1041,15 +1066,15 @@ else:
                         if st.button(toggle_txt, key=f"toggle_gv_{idx}"):
                             new_st = "inactive" if clean_key(u_status) == "active" else "active"
                             st.session_state.users_df.loc[idx, 'status'] = new_st
-                            save_sheet_to_gas("Users", st.session_state.users_df)
-                            st.success(f"Đã chuyển trạng thái TK **{u_name}** sang `{new_st}`!")
-                            st.rerun()
+                            if save_sheet_to_gas("Users", st.session_state.users_df):
+                                st.success(f"Đã chuyển trạng thái TK **{u_name}** sang `{new_st}`!")
+                                st.rerun()
                     with c_g4:
                         if st.button("🗑️ Xóa", key=f"del_gv_{idx}"):
                             st.session_state.users_df = st.session_state.users_df.drop(idx).reset_index(drop=True)
-                            save_sheet_to_gas("Users", st.session_state.users_df)
-                            st.success(f"Đã xóa tài khoản giáo viên **{u_name}**!")
-                            st.rerun()
+                            if save_sheet_to_gas("Users", st.session_state.users_df):
+                                st.success(f"Đã xóa tài khoản giáo viên **{u_name}**!")
+                                st.rerun()
                     
                     if st.session_state.get(f"editing_gv_{idx}", False):
                         with st.form(key=f"form_edit_gv_detail_{idx}"):
@@ -1064,10 +1089,10 @@ else:
                                 st.session_state.users_df.loc[idx, 'name'] = new_gv_name.strip()
                                 st.session_state.users_df.loc[idx, 'class_name'] = new_gv_class
                                 st.session_state.users_df.loc[idx, 'password'] = new_gv_pass.strip()
-                                save_sheet_to_gas("Users", st.session_state.users_df)
-                                st.session_state[f"editing_gv_{idx}"] = False
-                                st.success("🎉 Đã cập nhật thông tin Giáo viên vĩnh viễn!")
-                                st.rerun()
+                                if save_sheet_to_gas("Users", st.session_state.users_df):
+                                    st.session_state[f"editing_gv_{idx}"] = False
+                                    st.success("🎉 Đã cập nhật thông tin Giáo viên vĩnh viễn!")
+                                    st.rerun()
                     st.markdown("<hr style='margin: 4px 0;'>", unsafe_allow_html=True)
             else:
                 st.info("Cơ sở chưa có giáo viên nào.")
@@ -1124,9 +1149,9 @@ else:
                     user_idx = st.session_state.users_df[user_mask].index
                     if not user_idx.empty:
                         st.session_state.users_df.loc[user_idx, "class_name"] = custom_class_name
-                        save_sheet_to_gas("Users", st.session_state.users_df)
-                        st.success(f"🎉 Đã lưu tên lớp: **{custom_class_name}**")
-                        st.rerun()
+                        if save_sheet_to_gas("Users", st.session_state.users_df):
+                            st.success(f"🎉 Đã lưu tên lớp: **{custom_class_name}**")
+                            st.rerun()
 
             st.markdown("---")
             
@@ -1148,9 +1173,9 @@ else:
                             "student_note": clean_note
                         }])
                         st.session_state.students_df = pd.concat([st.session_state.students_df, new_std_row], ignore_index=True)
-                        save_sheet_to_gas("Students", st.session_state.students_df)
-                        st.success(f"🎉 Đã lưu vĩnh viễn bé **{clean_name}** vào danh sách lớp!")
-                        st.rerun()
+                        if save_sheet_to_gas("Students", st.session_state.students_df):
+                            st.success(f"🎉 Đã lưu vĩnh viễn bé **{clean_name}** vào danh sách lớp!")
+                            st.rerun()
 
             st.markdown("---")
             st.markdown("##### 📋 Danh Sách Học Sinh Trong Lớp")
@@ -1175,9 +1200,9 @@ else:
                     with c_s3:
                         if st.button("🗑️ Xóa", key=f"del_std_{idx}"):
                             st.session_state.students_df = st.session_state.students_df.drop(idx).reset_index(drop=True)
-                            save_sheet_to_gas("Students", st.session_state.students_df)
-                            st.success(f"Đã xóa học sinh **{s_name}**!")
-                            st.rerun()
+                            if save_sheet_to_gas("Students", st.session_state.students_df):
+                                st.success(f"Đã xóa học sinh **{s_name}**!")
+                                st.rerun()
                     
                     if st.session_state.get(f"editing_std_{idx}", False):
                         with st.form(key=f"form_edit_std_{idx}"):
@@ -1189,10 +1214,10 @@ else:
                             if btn_save_edit:
                                 st.session_state.students_df.loc[idx, 'student_name'] = new_name_val.strip()
                                 st.session_state.students_df.loc[idx, 'student_note'] = new_note_val.strip()
-                                save_sheet_to_gas("Students", st.session_state.students_df)
-                                st.session_state[f"editing_std_{idx}"] = False
-                                st.success(f"🎉 Đã cập nhật thông tin bé **{new_name_val.strip()}**!")
-                                st.rerun()
+                                if save_sheet_to_gas("Students", st.session_state.students_df):
+                                    st.session_state[f"editing_std_{idx}"] = False
+                                    st.success(f"🎉 Đã cập nhật thông tin bé **{new_name_val.strip()}**!")
+                                    st.rerun()
                     st.markdown("<hr style='margin: 4px 0;'>", unsafe_allow_html=True)
             else:
                 st.info("Lớp chưa có học sinh nào.")
@@ -1218,7 +1243,7 @@ else:
                     if not std_match.empty:
                         n_col = "student_note" if "student_note" in std_match.columns else "Student_Note"
                         if n_col in std_match.columns:
-                            std_note_info = str(std_match.iloc[0][n_col]).strip()
+                            std_note_info = str(std_match.iloc[0].get(n_col, '')).strip()
                         else:
                             std_note_info = ""
                         if std_note_info.lower() in ["nan", "none"]:
@@ -1303,9 +1328,9 @@ else:
                         }])
                         
                         st.session_state.daily_logs_df = pd.concat([st.session_state.daily_logs_df, new_log], ignore_index=True)
-                        save_sheet_to_gas("DailyLogs", st.session_state.daily_logs_df)
-                        st.success(f"🎉 Đã lưu vĩnh viễn Hồ sơ cảm xúc cho bé **{std_select}**!")
-                        st.rerun()
+                        if save_sheet_to_gas("DailyLogs", st.session_state.daily_logs_df):
+                            st.success(f"🎉 Đã lưu vĩnh viễn Hồ sơ cảm xúc cho bé **{std_select}**!")
+                            st.rerun()
 
         elif main_menu == "🎯 3. Đánh giá EQ 6 Tiêu chí":
             st.subheader("🎯 ĐÁNH GIÁ EQ 6 TIÊU CHÍ")
@@ -1406,9 +1431,9 @@ else:
                             "context": context_input, "conclusion": conclusion_input, "plan": plan_input
                         }])
                         st.session_state.evaluations_df = pd.concat([st.session_state.evaluations_df, new_eval], ignore_index=True)
-                        save_sheet_to_gas("Evaluations", st.session_state.evaluations_df)
-                        st.success(f"🎉 Đã lưu vĩnh viễn đánh giá EQ cho bé **{std_eval}**!")
-                        st.rerun()
+                        if save_sheet_to_gas("Evaluations", st.session_state.evaluations_df):
+                            st.success(f"🎉 Đã lưu vĩnh viễn đánh giá EQ cho bé **{std_eval}**!")
+                            st.rerun()
 
                 with col_exp_btn:
                     single_eval_df = pd.DataFrame([{
@@ -1477,9 +1502,9 @@ else:
                             "conclusion": c_input, "plan": p_input, "comp_date": comp_date_str
                         }])
                         st.session_state.comparisons_df = pd.concat([st.session_state.comparisons_df, new_comp], ignore_index=True)
-                        save_sheet_to_gas("Comparisons", st.session_state.comparisons_df)
-                        st.success(f"🎉 Đã lưu vĩnh viễn dữ liệu so sánh cho bé **{std_comp}**!")
-                        st.rerun()
+                        if save_sheet_to_gas("Comparisons", st.session_state.comparisons_df):
+                            st.success(f"🎉 Đã lưu vĩnh viễn dữ liệu so sánh cho bé **{std_comp}**!")
+                            st.rerun()
 
                 with col_exp_cmp:
                     single_comp_df = pd.DataFrame([{
