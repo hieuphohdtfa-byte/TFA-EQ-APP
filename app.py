@@ -148,7 +148,7 @@ CAMPUS_MAP = {
 
 TFA_CLASSES = ["Pre-school (3-4 tuổi)", "Kindergarten (4-5 tuổi)", "Pre-primary (5-6 tuổi)"]
 
-SCHOOL_YEAR_OPTIONS = ["2025 - 2026", "2026 - 2027", "2027 - 2028"]
+SCHOOL_YEAR_OPTIONS = ["2024 - 2025", "2025 - 2026", "2026 - 2027", "2027 - 2028"]
 
 TFA_ROUTINES = [
     "Đón trẻ - Thể dục sáng", "Ăn sáng", "Hoạt động có chủ đích",
@@ -786,7 +786,7 @@ def render_eq_charts(eval_df, title_prefix=""):
 # -----------------------------------------------------------------------------
 head_col1, head_col2 = st.columns([1.2, 3.8])
 with head_col1:
-    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=330)
+    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=220)
     else: st.write("☀️ **THE FIRST ACADEMY**")
 with head_col2:
     st.markdown("""
@@ -812,6 +812,7 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
+        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=260)
         
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
@@ -855,10 +856,10 @@ if st.session_state.logged_user is None:
         st.markdown("""
             <div>
                 <span class="campus-badge">🏢 TFA Hà Đô (Phường Cát Lái, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Quận 8, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Trần Thị Lý (Đà Nẵng)</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -1162,7 +1163,7 @@ else:
                     row = st.session_state.students_df.loc[idx]
                     s_name = row.get('student_name', row.get('Student_Name', ''))
                     s_note = str(row.get('student_note', row.get('Student_Note', ''))).strip()
-                    if pd.isna(s_note) or s_note == "nan": s_note = ""
+                    if pd.isna(s_note) or s_note.lower() in ["nan", "none"]: s_note = ""
                     
                     c_s1, c_s2, c_s3 = st.columns([3.2, 0.9, 0.9])
                     with c_s1:
@@ -1216,21 +1217,19 @@ else:
                     
                     if not std_match.empty:
                         n_col = "student_note" if "student_note" in std_match.columns else "Student_Note"
-                        std_note_info = str(std_match.iloc.get(n_col, '')).strip()
-                        if not std_match.empty:
-                            n_col = "student_note" if "student_note" in std_match.columns else "Student_Note"
-                            if n_col in std_match.columns:
-                                std_note_info = str(std_match.iloc[0][n_col]).strip()
-                            else:
-                                std_note_info = ""
-        
-                            if std_note_info.lower() in ["nan", "none"]:
-                                std_note_info = ""
-        
-                            if std_note_info:
-                                st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**\n\n📌 **Lưu ý:** {std_note_info}")
-                            else:
-                                st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
+                        if n_col in std_match.columns:
+                            std_note_info = str(std_match.iloc[0][n_col]).strip()
+                        else:
+                            std_note_info = ""
+                        if std_note_info.lower() in ["nan", "none"]:
+                            std_note_info = ""
+                        
+                        if std_note_info:
+                            st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**\n\n📌 **Lưu ý:** {std_note_info}")
+                        else:
+                            st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
+                    else:
+                        st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
                 
                 dynamic_prefix = f"{std_select}_{log_date}"
                 
