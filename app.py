@@ -483,7 +483,7 @@ def format_evaluations_export(df):
     export_df["Kỳ / Tháng"] = get_col("term")
     
     for tc in ["tc1", "tc2", "tc3", "tc4", "tc5", "tc6"]:
-        export_df[tc.upper()] = pd.to_numeric(get_col(tc), errors='coerce').fillna(0)
+        export_df[tc.upper()] = pd.Series(pd.to_numeric(get_col(tc), errors='coerce')).fillna(0)
         
     export_df["Điểm TB (PEQ)"] = pd.to_numeric(get_col("p_eq"), errors='coerce').fillna(0)
     export_df["Nhóm Trạng Thái"] = get_col("group_clean")
