@@ -1217,10 +1217,20 @@ else:
                     if not std_match.empty:
                         n_col = "student_note" if "student_note" in std_match.columns else "Student_Note"
                         std_note_info = str(std_match.iloc.get(n_col, '')).strip()
-                        if std_note_info and std_note_info != "nan":
-                            st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**\n\n📌 **Lưu ý:** {std_note_info}")
-                        else:
-                            st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
+                        if not std_match.empty:
+                            n_col = "student_note" if "student_note" in std_match.columns else "Student_Note"
+                            if n_col in std_match.columns:
+                                std_note_info = str(std_match.iloc[0][n_col]).strip()
+                            else:
+                                std_note_info = ""
+        
+                            if std_note_info.lower() in ["nan", "none"]:
+                                std_note_info = ""
+        
+                            if std_note_info:
+                                st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**\n\n📌 **Lưu ý:** {std_note_info}")
+                            else:
+                                st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
                 
                 dynamic_prefix = f"{std_select}_{log_date}"
                 
