@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
-GAS_URL = "https://script.google.com/macros/s/AKfycbyLmKWVgiMnLk94OL1bjAVROT0jl-JhplqFmm1jpvIJMqZnUfzJUirRQMfyJsjgX34cPQ/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbx0XKltmloL67JIG7g8PMDaekFtzY1WmircsmCSbfS-sYz99T0L8bNnVfguYjJ8X1nhdw/exec"
 
 # -----------------------------------------------------------------------------
 # 🛠️ HÀM HỖ TRỢ CHUẨN HÓA MÃ CHUỖI & TÌM KIẾM AN TOÀN TUYỆT ĐỐI
@@ -388,7 +388,7 @@ def auto_map_daily_to_criteria(student_name, teacher_name, daily_df):
     }
 
 # -----------------------------------------------------------------------------
-# 3. DỮ LIỆU TÀI KHOẢN MẶC ĐỊNH & HÀM ĐỒNG BỘ GOOGLE SHEET (SÁP NHẬP BẢO VỆ DỮ LIỆU)
+# 3. DỮ LIỆU TÀI KHOẢN MẶC ĐỊNH & HÀM ĐỒNG BỘ GOOGLE SHEET
 # -----------------------------------------------------------------------------
 DEFAULT_USERS_DF = pd.DataFrame([
     {"username": "admin", "password": "admin123", "name": "Ban Giám Hiệu Tổng (Toàn Hệ Thống)", "role": "super_admin", "campus_code": "ALL", "campus": "Tất cả cơ sở", "class_name": "Tất cả", "status": "active"},
@@ -534,32 +534,34 @@ def load_all_from_gas():
     try:
         res = requests.get(f"{GAS_URL}?action=read_all", allow_redirects=True, timeout=15)
         if res.status_code == 200:
-            return res.json()
+            data = res.json()
+            if isinstance(data, dict):
+                return data
     except Exception:
         pass
     return {}
 
 def save_sheet_to_gas(sheet_name, df):
     """
-    Gửi dữ liệu lên Google Apps Script Web App.
-    Xử lý thủ công chuyển hướng HTTP 302/307:
-    Dùng requests.get() để đọc kết quả từ URL redirect (không dùng POST để tránh lỗi 405).
+    Gửi dữ liệu song song (JSON Body & Form Data) lên Google Apps Script Web App.
+    Tự động xử lý chuyển hướng Redirect (302/307) và kiểm tra xem Google Sheet đã nhận được chưa.
     """
     try:
         clean_df = df.fillna("").astype(str)
         clean_df = clean_df.replace(["nan", "None", "NaN"], "")
+        rows_list = clean_df.to_dict(orient="records")
+        
         payload = {
             "action": "save_sheet",
             "sheet_name": sheet_name,
-            "rows": clean_df.to_dict(orient="records")
+            "rows": rows_list
         }
         
-        res = requests.post(GAS_URL, json=payload, allow_redirects=False, timeout=15)
+        headers = {"Content-Type": "application/json"}
         
-        if res.status_code in (301, 302, 303, 307, 308) and "Location" in res.headers:
-            redirect_url = res.headers["Location"]
-            res = requests.get(redirect_url, timeout=15)
-            
+        # 1. Thử gửi POST với JSON Payload
+        res = requests.post(GAS_URL, data=json.dumps(payload), headers=headers, allow_redirects=True, timeout=20)
+        
         if res.status_code == 200:
             try:
                 res_data = res.json()
@@ -569,9 +571,15 @@ def save_sheet_to_gas(sheet_name, df):
             except Exception:
                 pass
             return True
-        else:
-            st.error(f"⚠️ Google Sheet trả về mã lỗi HTTP: {res.status_code}")
-            return False
+            
+        # 2. Fallback: Nếu gửi JSON không nhận, thử gửi dưới dạng Form Parameter
+        fallback_res = requests.post(GAS_URL, data={"payload": json.dumps(payload)}, allow_redirects=True, timeout=20)
+        if fallback_res.status_code == 200:
+            return True
+            
+        st.error(f"⚠️ Google Sheet trả về mã lỗi HTTP: {res.status_code}. Hãy kiểm tra xem bạn đã cấp quyền 'Anyone' (Mọi người) trên Google Apps Script chưa!")
+        return False
+        
     except Exception as e:
         st.error(f"⚠️ Lỗi kết nối Google Sheet: {e}")
         return False
@@ -652,7 +660,7 @@ def authenticate_user(login_u, login_p, users_dict):
     return False, None, None, "NOT_FOUND"
 
 # -----------------------------------------------------------------------------
-# 4. HÀM CHUẨN HÓA BẢNG XUẤT FILE EXCEL/CSV (ÉP KIỂU PANDAS SERIES ĐÃ TEST 100%)
+# 4. HÀM CHUẨN HÓA BẢNG XUẤT FILE EXCEL/CSV
 # -----------------------------------------------------------------------------
 def format_evaluations_export(df):
     cols = [
