@@ -20,10 +20,8 @@ def clean_key(val):
     if val is None or pd.isna(val):
         return ""
     s = str(val).strip().lower()
-    if s.endswith(".0"):
-        s = s[:-2]
     s = s.replace(".0", "")
-    if s.startswith("0") and len(s) > 1 and s[1].isdigit():
+    if s.startswith("0") and len(s) > 1:
         s = s[1:]
     return s
 
@@ -34,6 +32,27 @@ def filter_df_by_clean_col(df, col_name, target_val):
     target_clean = clean_key(target_val)
     mask = df[col_name].apply(clean_key) == target_clean
     return df[mask]
+
+def get_gas_sheet_rows(gas_data, sheet_name):
+    """ Tìm và lấy danh sách dòng dữ liệu từ gas_data bất kể hoa thường, khoảng trắng hay bọc trong data/result """
+    if not isinstance(gas_data, dict):
+        return []
+        
+    for sub_key in ["data", "result", "sheets", "payload"]:
+        if sub_key in gas_data and isinstance(gas_data[sub_key], dict):
+            gas_data = gas_data[sub_key]
+            break
+
+    clean_target = str(sheet_name).strip().lower().replace(" ", "").replace("_", "")
+    
+    for k, v in gas_data.items():
+        clean_k = str(k).strip().lower().replace(" ", "").replace("_", "")
+        if clean_k == clean_target or clean_k == clean_target + "s" or clean_target == clean_k + "s":
+            if isinstance(v, list):
+                return v
+            elif isinstance(v, dict):
+                return [v]
+    return []
 
 # -----------------------------------------------------------------------------
 # 1. CẤU HÌNH TRANG & GIAO DIỆN VÀNG - TRẮNG - XÁM (TFA BRAND)
@@ -378,16 +397,136 @@ DEFAULT_USERS_DF = pd.DataFrame([
     {"username": "BGHLVS", "password": "123456", "name": "BGH Cơ Sở Lê Văn Sỹ", "role": "campus_admin", "campus_code": "LVS", "campus": CAMPUS_MAP["LVS"], "class_name": "Tất cả", "status": "active"}
 ])
 
-def normalize_gas_rows(rows_list):
-    """ Tự động chuyển tất cả tên cột về chữ thường và xóa khoảng trắng thừa """
-    if not isinstance(rows_list, list):
-        return []
-    norm_list = []
-    for r in rows_list:
-        if isinstance(r, dict):
-            norm_r = {str(k).strip().lower(): str(v).strip() if v is not None else "" for k, v in r.items()}
-            norm_list.append(norm_r)
-    return norm_list
+def normalize_users_df(raw_rows, default_users_df):
+    if not raw_rows:
+        return default_users_df
+    norm_rows = []
+    for r in raw_rows:
+        if not isinstance(r, dict): continue
+        row_clean = {}
+        for k, v in r.items():
+            k_clean = str(k).strip().lower().replace(" ", "").replace("_", "")
+            val_clean = str(v).strip() if v is not None else ""
+            if k_clean in ["username", "user", "tk", "tendangnhap", "taikhoan"]: row_clean["username"] = val_clean
+            elif k_clean in ["password", "pass", "matkhau"]: row_clean["password"] = val_clean
+            elif k_clean in ["name", "hoten", "tengiaovien", "ten"]: row_clean["name"] = val_clean
+            elif k_clean in ["role", "vaitro"]: row_clean["role"] = val_clean
+            elif k_clean in ["campuscode", "macoso", "code"]: row_clean["campus_code"] = val_clean
+            elif k_clean in ["campus", "coso"]: row_clean["campus"] = val_clean
+            elif k_clean in ["classname", "class", "lop"]: row_clean["class_name"] = val_clean
+            elif k_clean in ["status", "trangthai"]: row_clean["status"] = val_clean
+            else: row_clean[str(k).strip().lower()] = val_clean
+        norm_rows.append(row_clean)
+    df = pd.DataFrame(norm_rows)
+    for c in ["username", "password", "name", "role", "campus_code", "campus", "class_name", "status"]:
+        if c not in df.columns: df[c] = ""
+    all_df = pd.concat([default_users_df, df], ignore_index=True)
+    all_df["_u_clean"] = all_df["username"].apply(clean_key)
+    all_df = all_df[all_df["_u_clean"] != ""].drop_duplicates(subset=["_u_clean"], keep="last").drop(columns=["_u_clean"])
+    return all_df
+
+def normalize_students_df(raw_rows):
+    if not raw_rows:
+        return pd.DataFrame(columns=["teacher_user", "student_name", "student_note"])
+    norm_rows = []
+    for r in raw_rows:
+        if not isinstance(r, dict): continue
+        row_clean = {}
+        for k, v in r.items():
+            k_clean = str(k).strip().lower().replace(" ", "").replace("_", "")
+            val_clean = str(v).strip() if v is not None else ""
+            if k_clean in ["teacheruser", "teacher", "teacherusername", "tuser", "user", "giaovien", "tkgiaovien"]:
+                row_clean["teacher_user"] = clean_key(val_clean)
+            elif k_clean in ["studentname", "student", "sname", "tenhocsinh", "hocsinh", "tenbe", "be"]:
+                row_clean["student_name"] = val_clean
+            elif k_clean in ["studentnote", "note", "ghichu", "luuy"]:
+                row_clean["student_note"] = val_clean
+            else:
+                row_clean[str(k).strip().lower()] = val_clean
+        norm_rows.append(row_clean)
+    df = pd.DataFrame(norm_rows)
+    for c in ["teacher_user", "student_name", "student_note"]:
+        if c not in df.columns: df[c] = ""
+    return df
+
+def normalize_evaluations_df(raw_rows):
+    if not raw_rows:
+        return pd.DataFrame(columns=["teacher", "campus", "class", "student", "school_year", "term", "eval_date", "tc1", "tc2", "tc3", "tc4", "tc5", "tc6", "p_eq", "group_clean", "context", "conclusion", "plan"])
+    norm_rows = []
+    for r in raw_rows:
+        if not isinstance(r, dict): continue
+        row_clean = {str(k).strip().lower().replace(" ", "").replace("_", ""): str(v).strip() if v is not None else "" for k, v in r.items()}
+        std_row = {}
+        std_row["teacher"] = row_clean.get("teacher", row_clean.get("giaovien", ""))
+        std_row["campus"] = row_clean.get("campus", row_clean.get("coso", ""))
+        std_row["class"] = row_clean.get("class", row_clean.get("lop", ""))
+        std_row["student"] = row_clean.get("student", row_clean.get("hocsinh", row_clean.get("tenbe", "")))
+        std_row["school_year"] = row_clean.get("schoolyear", row_clean.get("namhoc", ""))
+        std_row["term"] = row_clean.get("term", row_clean.get("ky", ""))
+        std_row["eval_date"] = row_clean.get("evaldate", row_clean.get("ngay", ""))
+        std_row["tc1"] = row_clean.get("tc1", "0")
+        std_row["tc2"] = row_clean.get("tc2", "0")
+        std_row["tc3"] = row_clean.get("tc3", "0")
+        std_row["tc4"] = row_clean.get("tc4", "0")
+        std_row["tc5"] = row_clean.get("tc5", "0")
+        std_row["tc6"] = row_clean.get("tc6", "0")
+        std_row["p_eq"] = row_clean.get("peq", row_clean.get("peqscore", "0"))
+        std_row["group_clean"] = row_clean.get("groupclean", row_clean.get("nhom", ""))
+        std_row["context"] = row_clean.get("context", row_clean.get("boicanh", ""))
+        std_row["conclusion"] = row_clean.get("conclusion", row_clean.get("ketluan", ""))
+        std_row["plan"] = row_clean.get("plan", row_clean.get("kehoach", ""))
+        norm_rows.append(std_row)
+    return pd.DataFrame(norm_rows)
+
+def normalize_dailylogs_df(raw_rows):
+    if not raw_rows:
+        return pd.DataFrame(columns=["teacher", "campus", "class", "student", "date", "routine", "emotions", "note", "intervention", "summary", "details_json"])
+    norm_rows = []
+    for r in raw_rows:
+        if not isinstance(r, dict): continue
+        row_clean = {str(k).strip().lower().replace(" ", "").replace("_", ""): str(v).strip() if v is not None else "" for k, v in r.items()}
+        std_row = {
+            "teacher": row_clean.get("teacher", row_clean.get("giaovien", "")),
+            "campus": row_clean.get("campus", row_clean.get("coso", "")),
+            "class": row_clean.get("class", row_clean.get("lop", "")),
+            "student": row_clean.get("student", row_clean.get("hocsinh", "")),
+            "date": row_clean.get("date", row_clean.get("ngay", "")),
+            "routine": row_clean.get("routine", row_clean.get("hoatdong", "")),
+            "emotions": row_clean.get("emotions", row_clean.get("camxuc", "")),
+            "note": row_clean.get("note", row_clean.get("ghichu", "")),
+            "intervention": row_clean.get("intervention", row_clean.get("canthiep", "")),
+            "summary": row_clean.get("summary", row_clean.get("nhanxet", "")),
+            "details_json": row_clean.get("detailsjson", row_clean.get("details", ""))
+        }
+        norm_rows.append(std_row)
+    return pd.DataFrame(norm_rows)
+
+def normalize_comparisons_df(raw_rows):
+    if not raw_rows:
+        return pd.DataFrame(columns=["teacher", "campus", "class", "student", "school_year", "comp_type", "period_1", "period_2", "score_term1", "score_term2", "delta", "trend", "conclusion", "plan", "comp_date"])
+    norm_rows = []
+    for r in raw_rows:
+        if not isinstance(r, dict): continue
+        row_clean = {str(k).strip().lower().replace(" ", "").replace("_", ""): str(v).strip() if v is not None else "" for k, v in r.items()}
+        std_row = {
+            "teacher": row_clean.get("teacher", row_clean.get("giaovien", "")),
+            "campus": row_clean.get("campus", row_clean.get("coso", "")),
+            "class": row_clean.get("class", row_clean.get("lop", "")),
+            "student": row_clean.get("student", row_clean.get("hocsinh", "")),
+            "school_year": row_clean.get("schoolyear", row_clean.get("namhoc", "")),
+            "comp_type": row_clean.get("comptype", row_clean.get("loaisosanh", "")),
+            "period_1": row_clean.get("period1", row_clean.get("dot1", "")),
+            "period_2": row_clean.get("period2", row_clean.get("dot2", "")),
+            "score_term1": row_clean.get("scoreterm1", row_clean.get("diemdot1", "0")),
+            "score_term2": row_clean.get("scoreterm2", row_clean.get("diemdot2", "0")),
+            "delta": row_clean.get("delta", row_clean.get("bienthien", "0")),
+            "trend": row_clean.get("trend", row_clean.get("xuhuong", "")),
+            "conclusion": row_clean.get("conclusion", row_clean.get("ketluan", "")),
+            "plan": row_clean.get("plan", row_clean.get("kehoach", "")),
+            "comp_date": row_clean.get("compdate", row_clean.get("ngay", ""))
+        }
+        norm_rows.append(std_row)
+    return pd.DataFrame(norm_rows)
 
 def load_all_from_gas():
     try:
@@ -416,37 +555,25 @@ def init_app_data(force_reload=False):
         with st.spinner("🔄 Đang đồng bộ & nạp dữ liệu từ Google Trang tính..."):
             gas_data = load_all_from_gas()
             
-            # Nạp danh sách Users & Sáp nhập với DEFAULT_USERS_DF để luôn giữ Admin/BGH
-            raw_users = normalize_gas_rows(gas_data.get("Users", []))
-            if raw_users:
-                gas_users_df = pd.DataFrame(raw_users)
-                # Ghép mặc định và dữ liệu từ GAS, bỏ trùng theo username
-                all_users_df = pd.concat([DEFAULT_USERS_DF, gas_users_df], ignore_index=True)
-                # Dọn dẹp trùng lặp theo username đã clean
-                u_col = "username" if "username" in all_users_df.columns else "Username"
-                all_users_df["_clean_u"] = all_users_df[u_col].apply(clean_key)
-                all_users_df = all_users_df.drop_duplicates(subset=["_clean_u"], keep="last").drop(columns=["_clean_u"])
-                st.session_state.users_df = all_users_df
-            else:
-                st.session_state.users_df = DEFAULT_USERS_DF
+            # 1. Nạp Users
+            u_rows = get_gas_sheet_rows(gas_data, "Users")
+            st.session_state.users_df = normalize_users_df(u_rows, DEFAULT_USERS_DF)
             
-            # Nạp Students
-            raw_stds = normalize_gas_rows(gas_data.get("Students", []))
-            st.session_state.students_df = pd.DataFrame(raw_stds) if raw_stds else pd.DataFrame(columns=["teacher_user", "student_name", "student_note"])
-            if "student_note" not in st.session_state.students_df.columns:
-                st.session_state.students_df["student_note"] = ""
-                
-            # Nạp Evaluations
-            raw_evals = normalize_gas_rows(gas_data.get("Evaluations", []))
-            st.session_state.evaluations_df = pd.DataFrame(raw_evals) if raw_evals else pd.DataFrame(columns=["teacher", "campus", "class", "student", "school_year", "term", "eval_date", "tc1", "tc2", "tc3", "tc4", "tc5", "tc6", "p_eq", "group_clean", "context", "conclusion", "plan"])
+            # 2. Nạp Students
+            s_rows = get_gas_sheet_rows(gas_data, "Students")
+            st.session_state.students_df = normalize_students_df(s_rows)
             
-            # Nạp DailyLogs
-            raw_logs = normalize_gas_rows(gas_data.get("DailyLogs", []))
-            st.session_state.daily_logs_df = pd.DataFrame(raw_logs) if raw_logs else pd.DataFrame(columns=["teacher", "campus", "class", "student", "date", "routine", "emotions", "note", "intervention", "summary", "details_json"])
+            # 3. Nạp Evaluations
+            e_rows = get_gas_sheet_rows(gas_data, "Evaluations")
+            st.session_state.evaluations_df = normalize_evaluations_df(e_rows)
             
-            # Nạp Comparisons
-            raw_comps = normalize_gas_rows(gas_data.get("Comparisons", []))
-            st.session_state.comparisons_df = pd.DataFrame(raw_comps) if raw_comps else pd.DataFrame(columns=["teacher", "campus", "class", "student", "school_year", "comp_type", "period_1", "period_2", "score_term1", "score_term2", "delta", "trend", "conclusion", "plan", "comp_date"])
+            # 4. Nạp DailyLogs
+            d_rows = get_gas_sheet_rows(gas_data, "DailyLogs")
+            st.session_state.daily_logs_df = normalize_dailylogs_df(d_rows)
+            
+            # 5. Nạp Comparisons
+            c_rows = get_gas_sheet_rows(gas_data, "Comparisons")
+            st.session_state.comparisons_df = normalize_comparisons_df(c_rows)
             
             st.session_state.gas_loaded = True
 
@@ -454,6 +581,12 @@ init_app_data()
 
 if 'logged_user' not in st.session_state:
     st.session_state.logged_user = None
+
+# Restore login from query params across browser reloads (F5)
+if st.session_state.logged_user is None and hasattr(st, "query_params"):
+    saved_user = st.query_params.get("user", None)
+    if saved_user:
+        st.session_state.logged_user = clean_key(saved_user)
 
 def get_users_dict():
     """ Đọc từ users_df và chuẩn hóa hỗ trợ cả chữ hoa/thường, xóa đuôi .0 do Excel/GAS ép kiểu số """
@@ -653,7 +786,7 @@ def render_eq_charts(eval_df, title_prefix=""):
 # -----------------------------------------------------------------------------
 head_col1, head_col2 = st.columns([1.2, 3.8])
 with head_col1:
-    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=330)
+    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=220)
     else: st.write("☀️ **THE FIRST ACADEMY**")
 with head_col2:
     st.markdown("""
@@ -679,6 +812,8 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
+        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=260)
+        
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
             login_pass = st.text_input("🔑 Mật khẩu:", type="password", placeholder="Nhập mật khẩu...").strip()
@@ -692,6 +827,8 @@ if st.session_state.logged_user is None:
                         st.error("❌ Tài khoản này đã bị NGƯNG HIỆU LỰC hoạt động!")
                     else:
                         st.session_state.logged_user = u_key
+                        if hasattr(st, "query_params"):
+                            st.query_params["user"] = u_key
                         st.success(f"🎉 Đăng nhập thành công! Chào mừng {u_info['name']}")
                         st.rerun()
                 elif err_code == "WRONG_PASSWORD":
@@ -719,10 +856,10 @@ if st.session_state.logged_user is None:
         st.markdown("""
             <div>
                 <span class="campus-badge">🏢 TFA Hà Đô (Phường Cát Lái, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Quận 8, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Trần Thị Lý (Đà Nẵng)</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -730,7 +867,9 @@ if st.session_state.logged_user is None:
 # 8. KHÔNG GIAN LÀM VIỆC TRONG APP (SAU KHI ĐĂNG NHẬP)
 # -----------------------------------------------------------------------------
 else:
-    user_info = users_dict[st.session_state.logged_user]
+    user_info = users_dict.get(st.session_state.logged_user, {
+        "name": "Người dùng", "role": "teacher", "campus": "TFA", "class_name": "Lớp"
+    })
     user_key = st.session_state.logged_user
     role = user_info.get("role", "teacher")
     
@@ -746,6 +885,8 @@ else:
     
     if st.sidebar.button("🚪 Đăng Xuất"):
         st.session_state.logged_user = None
+        if hasattr(st, "query_params") and "user" in st.query_params:
+            del st.query_params["user"]
         st.rerun()
 
     st.sidebar.markdown("---")
@@ -1076,7 +1217,7 @@ else:
                     
                     if not std_match.empty:
                         n_col = "student_note" if "student_note" in std_match.columns else "Student_Note"
-                        std_note_info = str(std_match.iloc[0].get(n_col, '')).strip()
+                        std_note_info = str(std_match.iloc.get(n_col, '')).strip()
                         if std_note_info and std_note_info != "nan":
                             st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**\n\n📌 **Lưu ý:** {std_note_info}")
                         else:
