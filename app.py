@@ -27,6 +27,36 @@ def clean_key(val):
         s = s[1:]
     return s
 
+
+def clean_str(val):
+    if not val: return 
+    s = str(val).strip().lower()
+    return re.sub(r'[^a-z0-9àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđ]', '', s)
+
+def get_campus_code(val):
+    s = clean_str(val)
+    if not s: return 
+    if 'hado' in s or 'hàđô' in s or 'catlai' in s or 'cátlái' in s or s == 'hd': return 'HD'
+    if 'himlam' in s or 'tanhung' in s or 'tânhưng' in s or s == 'hl': return 'HL'
+    if 'duongbachmai' in s or 'dươngbạchmai' in s or 'chanhung' in s or 'chánhhưng' in s or s == 'dbm' or 'quan8' in s or 'quận8' in s: return 'DBM'
+    if 'levansy' in s or 'lêvănsỹ' in s or 'phunhuan' in s or 'phúnhuận' in s or s == 'lvs': return 'LVS'
+    if 'tranthily' in s or 'trầnthịlý' in s or 'hoacuong' in s or 'hòacường' in s or s == 'ttl' or 'danang' in s or 'đànẵng' in s: return 'TTL'
+    if 'all' in s or 'tatca' in s or 'tấtcả' in s: return 'ALL'
+    return s
+
+def campus_matches(c1, c2):
+    code1 = get_campus_code(c1)
+    code2 = get_campus_code(c2)
+    if code1 == 'ALL' or code2 == 'ALL': return True
+    if code1 and code2 and code1 == code2: return True
+    return clean_str(c1) in clean_str(c2) or clean_str(c2) in clean_str(c1)
+
+def filter_df_by_campus(df, col_name, target_campus):
+    if df is None or df.empty or col_name not in df.columns:
+        return pd.DataFrame()
+    mask = df[col_name].apply(lambda x: campus_matches(x, target_campus))
+    return df[mask]
+
 def filter_df_by_clean_col(df, col_name, target_val):
     """ Lọc DataFrame không lo phân biệt hoa/thường, khoảng trắng, số 0 ở đầu hay đuôi .0 """
     if df is None or df.empty or col_name not in df.columns:
@@ -890,9 +920,9 @@ if st.session_state.logged_user is None:
             <div>
                 <span class="campus-badge">🏢 TFA Hà Đô (Phường Cát Lái, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Quận 8, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Trần Thị Lý (Đà Nẵng)</span>
+                <span class="campus-badge">🏢 TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -1114,7 +1144,7 @@ else:
         elif main_menu == f"📊 2. Báo cáo EQ Cơ sở ({my_code})":
             st.subheader(f"📊 BÁO CÁO TỔNG HỢP EQ CƠ SỞ: {my_campus.upper()}")
             c_col = "campus" if "campus" in st.session_state.evaluations_df.columns else "Campus"
-            df_c = filter_df_by_clean_col(st.session_state.evaluations_df, c_col, my_campus)
+            df_c = filter_df_by_campus(st.session_state.evaluations_df, c_col, my_campus)
             df_export = format_evaluations_export(df_c)
             
             st.dataframe(df_export, use_container_width=True)
@@ -1127,7 +1157,7 @@ else:
         else:
             st.subheader(f"📈 BẢNG SO SÁNH XU HƯỚNG EQ CƠ SỞ: {my_campus.upper()}")
             c_col = "campus" if "campus" in st.session_state.comparisons_df.columns else "Campus"
-            df_comp_c = filter_df_by_clean_col(st.session_state.comparisons_df, c_col, my_campus)
+            df_comp_c = filter_df_by_campus(st.session_state.comparisons_df, c_col, my_campus)
             df_comp_export = format_comparisons_export(df_comp_c)
             
             st.dataframe(df_comp_export, use_container_width=True)
