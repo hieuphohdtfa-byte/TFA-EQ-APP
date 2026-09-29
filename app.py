@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
-GAS_URL = "https://script.google.com/macros/s/AKfycbx0XKltmloL67JIG7g8PMDaekFtzY1WmircsmCSbfS-sYz99T0L8bNnVfguYjJ8X1nhdw/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbyLmKWVgiMnLk94OL1bjAVROT0jl-JhplqFmm1jpvIJMqZnUfzJUirRQMfyJsjgX34cPQ/exec"
 
 # -----------------------------------------------------------------------------
 # 🛠️ HÀM HỖ TRỢ CHUẨN HÓA MÃ CHUỖI & TÌM KIẾM AN TOÀN TUYỆT ĐỐI
@@ -36,7 +36,7 @@ def filter_df_by_clean_col(df, col_name, target_val):
     return df[mask]
 
 def get_gas_sheet_rows(gas_data, sheet_name):
-    """ Tìm và lấy danh sách dòng dữ liệu từ gas_data bất kể hoa thường, khoảng trắng hay bọc trong data/result """
+    """ Tìm và lấy danh sách dòng dữ liệu từ gas_data """
     if not isinstance(gas_data, dict):
         return []
         
@@ -57,30 +57,32 @@ def get_gas_sheet_rows(gas_data, sheet_name):
     return []
 
 # -----------------------------------------------------------------------------
-# 1. CẤU HÌNH TRANG & GIAO DIỆN VÀNG - TRẮNG - XÁM (TFA BRAND)
+# 1. CẤU HÌNH TRANG & GIAO DIỆN TỐI ƯU CẢ TRÊN MÁY TÍNH VÀ ĐIỆN THOẠI (RESPONSIVE)
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="The FIRST Academy - Hệ Thống Quản Lý Cảm Xúc EQ",
     layout="wide",
-    page_icon="☀️"
+    page_icon="☀️",
+    initial_sidebar_state="expanded"
 )
 
+# Thêm CSS Tối ưu hóa đặc biệt cho Màn hình Điện thoại di động
 st.markdown("""
     <style>
         .stApp { background-color: #FFFDF5; }
         .main-header {
             background: linear-gradient(135deg, #FFC107 0%, #FF9800 100%);
-            padding: 20px 30px;
+            padding: 18px 22px;
             border-radius: 12px;
             color: #1A1A1A;
             box-shadow: 0 4px 15px rgba(255, 193, 7, 0.25);
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
-        .main-header h2 { color: #1A1A1A !important; font-weight: 800; margin: 0; font-size: 26px; }
-        .main-header p { color: #2D2D2D; margin: 4px 0 0 0; font-size: 15px; font-weight: 500; }
+        .main-header h2 { color: #1A1A1A !important; font-weight: 800; margin: 0; font-size: 24px; }
+        .main-header p { color: #2D2D2D; margin: 4px 0 0 0; font-size: 14px; font-weight: 500; }
         .login-card {
             background-color: #FFFFFF;
-            padding: 25px 20px 15px 20px;
+            padding: 20px 15px;
             border-radius: 16px;
             border: 2px solid #FFE082;
             box-shadow: 0 8px 20px rgba(0,0,0,0.06);
@@ -92,15 +94,15 @@ st.markdown("""
             font-weight: 700;
             border: none;
             border-radius: 10px;
-            padding: 10px 24px;
+            padding: 12px 20px;
             width: 100%;
             transition: all 0.3s ease;
+            font-size: 15px;
         }
         .stButton>button:hover {
             background-color: #FFB300;
             color: #000000;
             box-shadow: 0 4px 12px rgba(255, 179, 0, 0.4);
-            transform: translateY(-2px);
         }
         section[data-testid="stSidebar"] {
             background-color: #FFF9E6;
@@ -108,11 +110,11 @@ st.markdown("""
         }
         .info-card {
             background-color: #FFFFFF;
-            padding: 25px;
+            padding: 20px;
             border-radius: 16px;
             border: 1px solid #FFE58F;
             box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         .campus-badge {
             background-color: #FFF3C4;
@@ -134,11 +136,36 @@ st.markdown("""
             display: inline-block;
             margin-top: 4px;
         }
+
+        /* 📱 TỐI ƯU HÓA RIÊNG MÀN HÌNH ĐIỆN THOẠI (< 768px) */
+        @media (max-width: 768px) {
+            .stApp { padding: 8px !important; }
+            .main-header { padding: 14px 16px !important; text-align: center; }
+            .main-header h2 { font-size: 18px !important; }
+            .main-header p { font-size: 12px !important; }
+            
+            div[data-testid="column"] {
+                width: 100% !important;
+                flex: 1 1 100% !important;
+                min-width: 100% !important;
+                margin-bottom: 8px !important;
+            }
+            
+            .stButton>button {
+                padding: 14px 16px !important;
+                font-size: 16px !important;
+            }
+            
+            div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+        }
     </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. BỘ TIÊU CHÍ EQ NGUYÊN BẢN 100% CHO CẢ 3 KHỐI LỚP
+# 2. BỘ TIÊU CHÍ EQ NGUYÊN BẢN CẢ 3 KHỐI LỚP
 # -----------------------------------------------------------------------------
 CAMPUS_MAP = {
     "HD": "Cơ sở TFA Hà Đô (Phường Cát Lái, TP.HCM)",
@@ -149,8 +176,7 @@ CAMPUS_MAP = {
 }
 
 TFA_CLASSES = ["Pre-school (3-4 tuổi)", "Kindergarten (4-5 tuổi)", "Pre-primary (5-6 tuổi)"]
-
-SCHOOL_YEAR_OPTIONS = ["2026 - 2027", "2027 - 2028", "2028-2029"]
+SCHOOL_YEAR_OPTIONS = ["2024 - 2025", "2025 - 2026", "2026 - 2027", "2027 - 2028"]
 
 TFA_ROUTINES = [
     "Đón trẻ - Thể dục sáng", "Ăn sáng", "Hoạt động có chủ đích",
@@ -164,115 +190,115 @@ CRITERIA_DATA = {
     "Pre-school (3-4 tuổi)": {
         "TC1": {
             1: "Mức 1: Khóc/giận/vui nhưng không biết vì sao, không có sự kết nối giữa hành động và suy nghĩ.",
-            2: "Mức 2: Trẻ chỉ nhận diện được khi cô đặt câu hỏi xác nhận trực tiếp. Trả lời khi cô hỏi: 'Con đang buồn à?', 'Con thích nó à?'",
-            3: "Mức 3: Trẻ tự dùng từ đơn để thông báo trạng thái mà không cần cô hỏi trước. Tự nói: 'Con buồn', 'Không thích', 'Vui lắm'.",
-            4: "Mức 4: Tự nhận ra sớm trước khi bộc phát. Trẻ có dấu hiệu nhận ra cảm xúc từ sớm (trước khi bùng nổ) và thể hiện ra bên ngoài để tìm kiếm sự hỗ trợ, chia sẻ."
+            2: "Mức 2: Trẻ chỉ nhận diện được khi cô đặt câu hỏi xác nhận trực tiếp ('Con đang buồn à?').",
+            3: "Mức 3: Trẻ tự dùng từ đơn để thông báo trạng thái mà không cần cô hỏi trước ('Con buồn', 'Vui lắm').",
+            4: "Mức 4: Tự nhận ra sớm trước khi bộc phát và thể hiện ra bên ngoài để tìm kiếm hỗ trợ."
         },
         "TC2": {
-            1: "Mức 1: Trẻ chỉ biểu đạt cảm xúc thuần túy qua các phản ứng sinh lý và xung năng (khóc, cười, la hét) mà chưa có sự kết nối với ngôn ngữ.",
-            2: "Mức 2: Trẻ sử dụng từ vựng cảm xúc đơn lẻ, nói 1 từ đơn ('Giận', 'Buồn', 'Vui') để gọi tên trạng thái khi được gợi ý hoặc tự thân.",
-            3: "Mức 3: Trẻ có khả năng nói câu đơn giản để định danh cảm xúc ('Con sợ quá' hoặc 'Con buồn', 'Con vui lắm').",
+            1: "Mức 1: Trẻ biểu đạt cảm xúc thuần túy qua các phản ứng sinh lý (khóc, cười, la hét).",
+            2: "Mức 2: Sử dụng từ vựng cảm xúc đơn lẻ ('Giận', 'Buồn', 'Vui') khi được gợi ý hoặc tự thân.",
+            3: "Mức 3: Nói được câu đơn giản để định danh cảm xúc ('Con sợ quá', 'Con buồn').",
             4: "Mức 4: Trẻ diễn đạt + chỉ ra nguyên nhân bằng ngôn ngữ logic sơ khai."
         },
         "TC3": {
-            1: "Mức 1: Phản ứng tiêu cực kéo dài, ăn vạ, ném đồ/yêu thích quá độ > 5 phút và khó bị tác động bởi lời nói của giáo viên.",
-            2: "Mức 2: Trẻ bình tĩnh lại khi có sự can thiệp trực tiếp như dừng khi cô ôm/trấn an.",
-            3: "Mức 3: Trẻ nghe theo hướng dẫn, nhắc nhở nhẹ nhàng điều chỉnh của cô để tự lấy lại bình tĩnh.",
-            4: "Mức 4: Trẻ biết tự tìm các 'điểm tự an toàn', tự tìm góc bình tĩnh không cần cô can thiệp."
+            1: "Mức 1: Phản ứng tiêu cực kéo dài > 5 phút và khó bị tác động bởi lời nói của cô.",
+            2: "Mức 2: Bình tĩnh lại khi có sự can thiệp trực tiếp (khi cô ôm / trấn an).",
+            3: "Mức 3: Nghe theo hướng dẫn, nhắc nhở nhẹ nhàng của cô để tự lấy lại bình tĩnh.",
+            4: "Mức 4: Trẻ biết tự tìm các 'góc bình tĩnh' tự an toàn mà không cần cô can thiệp."
         },
         "TC4": {
-            1: "Mức 1: Hoàn toàn không có phản ứng hoặc phớt lờ, thờ ơ khi thấy bạn khác đang khóc, đau hoặc gặp khó khăn. Chỉ quan tâm đến nhu cầu cá nhân.",
-            2: "Mức 2: Có tạm dừng các hoạt động cá nhân để quan sát, theo dõi khi bạn có biểu hiện cảm xúc mạnh (khóc, giận, la hét, vui) nhưng không hành động.",
-            3: "Mức 3: Trẻ thực hiện các cử chỉ an ủi sơ khai bằng hành động cụ thể: biết vuốt lưng/an ủi khi thấy bạn gặp vấn đề, dưới sự khích lệ hoặc tự thân.",
-            4: "Mức 4: Chủ động kết nối giúp bạn giải tỏa/ chia sẻ niềm vui hoặc đề xuất chơi chung để bạn hết buồn ('Bạn đừng khóc nữa, chơi với tớ này')."
+            1: "Mức 1: Thờ ơ khi thấy bạn khác đang khóc, đau hoặc gặp khó khăn.",
+            2: "Mức 2: Tạm dừng hoạt động để quan sát khi bạn có biểu hiện cảm xúc mạnh.",
+            3: "Mức 3: Thực hiện các cử chỉ an ủi sơ khai (vuốt lưng, chia sẻ đồ chơi) với bạn.",
+            4: "Mức 4: Chủ động kết nối giúp bạn giải tỏa / rủ bạn chơi chung để bạn hết buồn."
         },
         "TC5": {
-            1: "Mức 1: Phụ thuộc hoàn toàn vào không khí lớp kể cả những thay đổi nhỏ hay xuất hiện những yếu tố lạ.",
-            2: "Mức 2: Phụ thuộc vào sự an toàn quen thuộc, dễ bị lây cảm xúc, lo lắng, rụt rè và ngừng tương tác khi môi trường thay đổi.",
+            1: "Mức 1: Phụ thuộc hoàn toàn vào không khí lớp, dễ bùng nổ khi có thay đổi.",
+            2: "Mức 2: Phụ thuộc vào sự an toàn quen thuộc, rụt rè khi môi trường thay đổi.",
             3: "Mức 3: Ổn định trong môi trường quen thuộc, thích nghi có điều kiện.",
-            4: "Mức 4: Ít bị ảnh hưởng tiêu cực, duy trì được tâm trạng dù môi trường có sự thay đổi."
+            4: "Mức 4: Ít bị ảnh hưởng tiêu cực, duy trì được tâm trạng dù môi trường thay đổi."
         },
         "TC6": {
-            1: "Mức 1: Có cơ chế phòng vệ, lảng tránh ánh mắt, không trả lời tiếp tục khóc, ăn vạ khi cô đã dỗ.",
-            2: "Mức 2: Trẻ dịu lại 'nghe' khi cô nói nhưng chưa 'hiểu' hoặc chưa muốn thực hiện theo. Cần thời gian chờ lâu.",
-            3: "Mức 3: Hợp tác sau khi được công nhận, kết nối lại và sẵn sàng thực hiện các yêu cầu đơn giản.",
-            4: "Mức 4: Tự giải tỏa được tâm lý, chủ động tìm cô khi cần."
+            1: "Mức 1: Có cơ chế phòng vệ, lảng tránh ánh mắt, tiếp tục khóc khi cô dỗ.",
+            2: "Mức 2: Dịu lại 'nghe' cô nói nhưng chưa 'hiểu' hoặc chưa sẵn sàng làm theo.",
+            3: "Mức 3: Hợp tác sau khi được công nhận, sẵn sàng thực hiện các yêu cầu đơn giản.",
+            4: "Mức 4: Tự giải tỏa được tâm lý, chủ động tìm cô khi cần hỗ trợ."
         }
     },
     "Kindergarten (4-5 tuổi)": {
         "TC1": {
-            1: "Mức 1: Nói được cảm xúc nhưng chưa giải thích được lý do bởi lấn áp bởi những hành động. Giận/buồn/vui nhưng chỉ nói 'con không thích', 'Con thích' mà chưa hiểu và nói được lý do.",
-            2: "Mức 2: Xác nhận được lý do khi cô gợi ý câu hỏi nguyên nhân-kết quả. Có thể trả lời khi cô hỏi: 'Con buồn vì bạn lấy đồ chơi của con'.",
-            3: "Mức 3: Chủ động sử dụng câu ghép để giải thích trạng thái: 'Con buồn vì bạn không chơi với con', 'Con vui vì thích bạn'.",
-            4: "Mức 4: Nhận ra sớm cảm xúc, thông tin đến cô tự điều chỉnh hành vi, đưa giải pháp trước khi bộc phát: 'Con đang giận nên con muốn ngồi yên một chút', 'Muốn chia sẻ cùng bạn'."
+            1: "Mức 1: Nói được cảm xúc nhưng chưa giải thích được lý do ('Con không thích').",
+            2: "Mức 2: Xác nhận được lý do khi cô gợi ý câu hỏi nguyên nhân - kết quả.",
+            3: "Mức 3: Chủ động sử dụng câu ghép để giải thích trạng thái ('Con buồn vì bạn không chơi cùng').",
+            4: "Mức 4: Nhận ra sớm cảm xúc, thông tin đến cô tự điều chỉnh hành vi trước khi bộc phát."
         },
         "TC2": {
-            1: "Mức 1: Ổn định, kiểm soát các hành động bản năng (đánh, ném, khóc, hét, chạy nhảy quá mức). Trẻ bắt đầu sử dụng ngôn ngữ bộc lộ trạng thái tâm lý.",
-            2: "Mức 2: Trẻ tự gọi tên chính xác cảm xúc của mình bằng một câu đơn ngắn rõ ràng mà không cần giáo viên đặt câu hỏi gợi mở từ 2–3 từ: 'Con đang giận', 'Con buồn'.",
-            3: "Mức 3: Nhận định được mối quan hệ giữa sự việc và trạng thái tâm lý cá nhân qua lời nói, cấu trúc 'nhân - quả' rõ hơn: 'Con buồn vì con thua trò chơi'; 'Con vui vì con thích điều đó'.",
-            4: "Mức 4: Biểu đạt cảm xúc kèm mong muốn/ giải pháp cụ thể thay đổi tình huống: 'Con buồn vì bạn lấy bút của con, con muốn bạn trả lại'."
+            1: "Mức 1: Ổn định, kiểm soát các hành động bản năng (đánh, ném, khóc, hét).",
+            2: "Mức 2: Tự gọi tên chính xác cảm xúc bằng câu đơn ngắn rõ ràng từ 2-3 từ.",
+            3: "Mức 3: Nhận định được mối quan hệ giữa sự việc và trạng thái tâm lý ('Con buồn vì thua').",
+            4: "Mức 4: Biểu đạt cảm xúc kèm mong muốn / giải pháp cụ thể để thay đổi tình huống."
         },
         "TC3": {
-            1: "Mức 1: Ổn định, kiềm chế, hành vi bộc phát vật lý ăn vạ kéo dài, vui mừng quá mức. Thay bằng bình tĩnh im lặng, hậm hực quay đi, dừng không hoạt động.",
-            2: "Mức 2: Phối hợp điều chỉnh khi cô hướng dẫn, gợi ý để ngừng các phản ứng tiêu cực/quá khích (hít thở, uống nước, rửa mặt, tìm góc yên tĩnh).",
-            3: "Mức 3: Chủ động tự điều chỉnh cảm xúc và dùng lời nói tự khích lệ ('Cố lên', 'Mình làm được', 'Con ngồi đây một chút cho hết giận') để duy trì trạng thái cân bằng, vượt qua khó khăn hoặc chờ đợi mà không cần cô can thiệp.",
-            4: "Mức 4: Chủ động tách khỏi nguồn xung đột để bảo vệ cảm xúc bản thân, đồng thời tự khôi phục sự tự tin để tiếp tục hoàn thành hoạt động chung một cách hứng khởi."
+            1: "Mức 1: Hành vi bộc phát kéo dài, im lặng hậm hực quay đi.",
+            2: "Mức 2: Phối hợp điều chỉnh khi cô hướng dẫn (hít thở, uống nước, rửa mặt).",
+            3: "Mức 3: Chủ động tự điều chỉnh và dùng lời nói tự khích lệ ('Cố lên', 'Mình làm được').",
+            4: "Mức 4: Chủ động tách khỏi nguồn xung đột, tự khôi phục sự tự tin để tiếp tục hoạt động."
         },
         "TC4": {
-            1: "Mức 1: Trẻ nhận biết được trạng thái vui, buồn, giận của bạn qua nét mặt, cử chỉ và có phản ứng quan tâm cơ bản như dừng lại quan sát hoặc hỏi thăm 'Bạn sao vậy?'.",
-            2: "Mức 2: Biểu đạt sự đồng cảm, thể hiện quan tâm bằng hành động cụ thể: an ủi hoặc giúp đỡ bạn (vỗ vai, chia sẻ đồ chơi, lấy khăn lau nước mắt hoặc đi tìm cô giúp bạn); vỗ tay, khen ngợi khi bạn vui và thành công.",
-            3: "Mức 3: Trẻ chủ động hành động chia sẻ (an ủi khi bạn buồn, chúc mừng khi bạn vui) một cách tự nhiên và thường xuyên trong nhiều tình huống mà không cần giáo viên nhắc nhở.",
-            4: "Mức 4: Trẻ chủ động mời gọi, kết nối các bạn cùng chơi và biết sử dụng lời nói để hòa giải các mâu thuẫn nhỏ và sự đoàn kết trong nhóm chơi/lớp."
+            1: "Mức 1: Nhận biết trạng thái vui, buồn, giận của bạn qua nét mặt, cử chỉ.",
+            2: "Mức 2: Biểu đạt sự đồng cảm bằng hành động cụ thể (an ủi, vỗ tay, chia sẻ đồ chơi).",
+            3: "Mức 3: Chủ động chia sẻ, an ủi bạn tự nhiên và thường xuyên không cần nhắc.",
+            4: "Mức 4: Mời gọi, kết nối các bạn cùng chơi, sử dụng lời nói để hòa giải mâu thuẫn nhỏ."
         },
         "TC5": {
-            1: "Mức 1: Còn phản ứng bản năng, nhận biết những sự thay đổi môi trường: bộc lộ sự khó chịu, lo lắng, khóc, phấn khích thu hút sự chú ý.",
-            2: "Mức 2: Hiểu và nhận biết được liên hệ cảm xúc của mình với ngoại cảnh và chủ động tìm sự chia sẻ và hỗ trợ: 'Con buồn vì bạn buồn', 'Con thích vì lớp mình có đồ chơi mới'.",
-            3: "Mức 3: Biết lựa chọn không gian phù hợp với cảm xúc cá nhân để giữ trạng thái ổn định, không bị cuốn theo sự xáo trộn, kích thích từ môi trường xung quanh ('tự lấy đồ chơi, ôm gấu bông', 'chọn góc chơi không gian chơi').",
-            4: "Mức 4: Có tinh thần chủ động nhắc nhở, giữ trật tự cùng cô để có không gian thoải mái cho bản thân và tập thể."
+            1: "Mức 1: Còn phản ứng bản năng, bộc lộ sự khó chịu, lo lắng khi môi trường đổi.",
+            2: "Mức 2: Hiểu liên hệ cảm xúc với ngoại cảnh và chủ động tìm sự chia sẻ từ cô.",
+            3: "Mức 3: Biết lựa chọn không gian phù hợp (góc bình tĩnh) để giữ trạng thái ổn định.",
+            4: "Mức 4: Chủ động nhắc nhở, giữ trật tự cùng cô để có không gian thoải mái."
         },
         "TC6": {
-            1: "Mức 1: Trẻ có dấu hiệu chuyển hóa trạng thái bùng nổ (khóc, gào, ăn vạ), kích thích quá độ (vui, hạnh phúc) sang lắng nghe, thả lỏng cơ thể, giảm các phản ứng xung năng khi được cô gọi đúng cảm xúc và thấu hiểu.",
-            2: "Mức 2: Trẻ chủ động phối hợp với cô: kể lại sự việc, nguyên nhân khi có sự đồng cảm và xoa dịu từ giáo viên ('Con buồn vì bạn lấy đồ chơi', 'Sợ tiếng ồn').",
-            3: "Mức 3: Có sự bình tĩnh, chủ động đề xuất để giải quyết tình huống ('tự đi lấy khăn lau nước mắt, chủ động ra bắt tay làm hòa với bạn, hoặc tiếp tục hoàn thành bài vẽ dở') khi được công nhận cảm xúc.",
-            4: "Mức 4: Hiểu về nguyên nhân - kết quả của hành vi, cảm xúc bản thân và đưa lời hứa để không lặp lại cảm xúc trên."
+            1: "Mức 1: Chuyển hóa trạng thái bùng nổ sang lắng nghe khi được cô gọi đúng cảm xúc.",
+            2: "Mức 2: Chủ động phối hợp kể lại sự việc, nguyên nhân khi có sự đồng cảm từ cô.",
+            3: "Mức 3: Bình tĩnh, chủ động đề xuất giải quyết tình huống khi được công nhận.",
+            4: "Mức 4: Hiểu nguyên nhân - kết quả của hành vi và đưa ra lời hứa không lặp lại."
         }
     },
     "Pre-primary (5-6 tuổi)": {
         "TC1": {
-            1: "Mức 1: Có khả năng định danh được những sắc thái cảm xúc phức tạp và không ăn vạ thô sơ. Chỉ nói được cảm xúc, sắc thái một cách chung chung, chưa gọi tên được cảm xúc thực tế.",
-            2: "Mức 2: Trẻ bắt đầu sử dụng một vài cụm từ vựng cảm xúc bậc cao: hồi hộp, xấu hổ, tự hào thay vì chỉ nói vui/buồn và cảm xúc, sắc thái một cách chung chung.",
-            3: "Mức 3: Lý giải được nguyên nhân, hiểu mối liên hệ giữa sự kiện khách quan và phản ứng chủ quan. Giải thích được tại sao mình có cảm xúc đó khi có sự gợi ý: 'Con thấy lo vì con chưa làm xong bài mà sắp hết giờ'.",
-            4: "Mức 4: Nhận ra sớm và nói được cảm xúc + dự báo cường độ ngay khi sự việc xảy ra mà không cần nhắc nhở: 'Con đang cực kỳ thất vọng vì con đã rất cố gắng', 'Con đang hơi bực nên con muốn bình tĩnh trước'. Duy trì được sự điềm tĩnh khi nói."
+            1: "Mức 1: Chỉ nói được cảm xúc chung chung, chưa gọi tên được sắc thái thực tế.",
+            2: "Mức 2: Sử dụng cụm từ cảm xúc bậc cao (hồi hộp, xấu hổ, tự hào).",
+            3: "Mức 3: Lý giải được nguyên nhân, hiểu mối liên hệ giữa sự kiện và phản ứng.",
+            4: "Mức 4: Nhận ra sớm, dự báo cường độ cảm xúc điềm tĩnh không cần nhắc nhở."
         },
         "TC2": {
-            1: "Mức 1: Cảm xúc quá mạnh trẻ chỉ dùng âm thanh, hành động (đẩy, kéo) để biểu đạt. Hoặc im lặng tuyệt đối, không thể thốt ra lời hoặc nói đơn giản 'Con không thích' dù cô đã dỗ dành, chia sẻ.",
-            2: "Mức 2: Diễn đạt rập khuôn, hoặc diễn đạt được khi cô đặt câu hỏi lựa chọn với những cảm xúc phức tạp: 'Con đang thấy hụt hẫng vì bạn không chơi cùng hay con thấy giận?'.",
-            3: "Mức 3: Nói rõ được từ vựng sắc thái, bắt đầu tự kết nối được logic nhân quả cảm xúc + nguyên nhân: 'Con buồn vì con thua trò chơi'. Nhưng cần cô hỏi thêm 'Điều gì làm con thấy như vậy?' mới kể rõ được câu chuyện.",
-            4: "Mức 4: Diễn đạt trọn vẹn cảm xúc bình tĩnh, rõ ràng + giải pháp: 'Con buồn vì bạn không cho chơi, mình chơi chung được không?'. Bắt đầu hình thành khả năng kết nối Ngôn ngữ - Logic - Cảm xúc."
+            1: "Mức 1: Cảm xúc quá mạnh chỉ dùng âm thanh, hành động hoặc im lặng tuyệt đối.",
+            2: "Mức 2: Diễn đạt được khi cô đặt câu hỏi lựa chọn với cảm xúc phức tạp.",
+            3: "Mức 3: Nói rõ từ vựng sắc thái, tự kết nối logic nhân quả cảm xúc + nguyên nhân.",
+            4: "Mức 4: Diễn đạt trọn vẹn cảm xúc bình tĩnh, rõ ràng kèm giải pháp khắc phục."
         },
         "TC3": {
-            1: "Mức 1: Thời gian mất kiểm soát kéo dài (> 10 phút). Từ chối mọi sự vỗ về hay gợi ý bình tĩnh từ giáo viên. Cần tác động vật lý hoặc sự can thiệp liên tục từ giáo viên mới dịu lại.",
-            2: "Mức 2: Trẻ lấy lại cân bằng được 100% nhờ sự điều hướng của giáo viên. Tốc độ hồi phục trung bình (5-7 phút). Nếu không được nhắc, trẻ sẽ tiếp tục trạng thái quá khích.",
-            3: "Mức 3: Tự điều chỉnh đạt 80%. Thời gian hồi phục nhanh (3-5 phút). Có ý thức quay lại hoạt động nhóm sau chủ động nhận diện cảm xúc và đề xuất giải pháp: 'Cô ơi con ra góc ngồi một lát'. Cần một sự xác nhận hoặc khích lệ từ cô để thực hiện hành động đó.",
-            4: "Mức 4: Tự nói phục hồi thời gian nhanh (< 2 phút): 'Con sẽ bình tĩnh rồi nói chuyện với bạn'. Biết điều chỉnh thái độ phù hợp với hoàn cảnh."
+            1: "Mức 1: Thời gian mất kiểm soát kéo dài (> 10 phút), từ chối vỗ về.",
+            2: "Mức 2: Lấy lại cân bằng nhờ sự điều hướng của cô (5-7 phút).",
+            3: "Mức 3: Tự điều chỉnh đạt 80%, hồi phục nhanh (3-5 phút), có ý thức quay lại nhóm.",
+            4: "Mức 4: Tự phục hồi thời gian cực nhanh (< 2 phút), điều chỉnh thái độ phù hợp."
         },
         "TC4": {
-            1: "Mức 1: Trẻ nhận biết được trạng thái cảm xúc của người khác qua nét mặt, cử chỉ. Biết dừng hoạt động cá nhân để hỏi han hoặc quan sát. Tuy nhiên, ưu tiên thỏa mãn nhu cầu cá nhân hơn quan tâm đến tác động cảm xúc lên đối tượng xung quanh.",
-            2: "Mức 2: Trẻ bắt đầu biết quan sát và thực hiện các hành vi xã hội (chia sẻ, giúp đỡ, hỏi han) nhưng chỉ khi có sự nhắc nhở hoặc định hướng trực tiếp từ cô.",
-            3: "Mức 3: Chủ động thực hiện hành vi tương trợ tự phát: biết hỏi han, an ủi khi bạn bất ổn. Bắt đầu sử dụng kỹ năng thương lượng để giải quyết mâu thuẫn: 'Tớ chơi trước, cậu chơi sau nhé' hoặc 'Chúng mình cùng chơi chung đi'. Biết cân bằng giữa nhu cầu cá nhân và lợi ích của bạn bè để duy trì cuộc chơi.",
-            4: "Mức 4: Khả năng phối hợp nhóm và dẫn dắt giúp giải quyết, tôn trọng sự khác biệt: 'Hai bạn cùng chơi chung nhé'."
+            1: "Mức 1: Nhận biết cảm xúc bạn nhưng ưu tiên thỏa mãn nhu cầu cá nhân.",
+            2: "Mức 2: Quan sát và thực hiện hành vi xã hội khi có sự nhắc nhở trực tiếp từ cô.",
+            3: "Mức 3: Chủ động tương trợ tự phát, dùng kỹ năng thương lượng ('Tớ chơi trước, cậu chơi sau').",
+            4: "Mức 4: Khả năng phối hợp nhóm xuất sắc, dẫn dắt hòa giải, tôn trọng sự khác biệt."
         },
         "TC5": {
-            1: "Mức 1: Trẻ dễ bị kích động hoặc trở nên thu mình trước các thay đổi của môi trường, chưa biết cách tự thoát ra khỏi sự khó chịu do ngoại cảnh gây ra. Chưa hình thành màng lọc cảm xúc.",
-            2: "Mức 2: Trẻ nhận ra mình khó chịu do môi trường 'Con thấy ồn quá' nhưng chỉ dừng lại ở việc than phiền hoặc chờ đợi cô giải quyết. Vẫn phụ thuộc vào sự can thiệp của cô để thay đổi trạng thái.",
-            3: "Mức 3: Biết tìm kiếm các giải pháp thay thế phù hợp khi môi trường không như ý. Chủ động thay đổi vị trí hoặc hành động để giảm bớt ảnh hưởng của môi trường: tự di chuyển ra chỗ yên tĩnh hơn khi lớp quá ồn, hoặc tự tìm đồ chơi thay thế.",
-            4: "Mức 4: Trẻ giữ được tâm thế ổn định dù môi trường thay đổi phức tạp. Duy trì hiệu suất hoạt động và thái độ tích cực bất chấp các biến số ngoại cảnh bất lợi: 'Thấy lớp lộn xộn, trẻ chủ động thu dọn để tạo không gian thoải mái cho mình và bạn'."
+            1: "Mức 1: Dễ bị kích động hoặc thu mình trước các thay đổi của môi trường.",
+            2: "Mức 2: Nhận ra mình khó chịu do môi trường ('Ồn quá') nhưng chờ cô giải quyết.",
+            3: "Mức 3: Biết tìm giải pháp thay thế, tự di chuyển ra chỗ yên tĩnh hơn.",
+            4: "Mức 4: Giữ tâm thế ổn định, duy trì hiệu suất hoạt động bất chấp ngoại cảnh."
         },
         "TC6": {
-            1: "Mức 1: Cần rất nhiều thời gian (> 15 phút), bị kẹt trong thế giới riêng, chưa có khả năng kết nối lại và nhiều phương pháp tiếp cận khác nhau từ giáo viên mới có thể bắt đầu dịu lại.",
-            2: "Mức 2: Chấp nhận sự đồng cảm nhưng thụ động, dừng các phản ứng thái quá khi được cô gọi tên cảm xúc 'Cô biết con đang rất buồn'. Lấy lại bình tĩnh được nhưng không chủ động tham gia lại vào hoạt động lớp. Cần cô dắt tay hoặc khích lệ thêm mới chịu vận động.",
-            3: "Mức 3: Phản hồi tích cực ngay sau khi được công nhận: biết gật đầu, lau nước mắt và chia sẻ thêm lý do khi cảm thấy được thấu hiểu. Biết dùng lời nói để xác nhận sự giải tỏa: 'Con đỡ buồn rồi ạ'.",
-            4: "Mức 4: Thể hiện sự trưởng thành về tâm thế: không chỉ tự xoa dịu mà còn biết cảm ơn người đã lắng nghe mình. Chủ động tìm cách giải quyết: 'Con sẽ nói với bạn cho con chơi chung'."
+            1: "Mức 1: Cần nhiều thời gian (> 15 phút), bị kẹt trong thế giới riêng.",
+            2: "Mức 2: Chấp nhận sự đồng cảm nhưng thụ động, cần cô khích lệ thêm.",
+            3: "Mức 3: Phản hồi tích cực ngay sau khi được công nhận, xác nhận 'Con đỡ buồn rồi'.",
+            4: "Mức 4: Thể hiện sự trưởng thành: biết cảm ơn người lắng nghe, tìm cách giải quyết."
         }
     }
 }
@@ -542,10 +568,6 @@ def load_all_from_gas():
     return {}
 
 def save_sheet_to_gas(sheet_name, df):
-    """
-    Gửi dữ liệu song song (JSON Body & Form Data) lên Google Apps Script Web App.
-    Tự động xử lý chuyển hướng Redirect (302/307) và kiểm tra xem Google Sheet đã nhận được chưa.
-    """
     try:
         clean_df = df.fillna("").astype(str)
         clean_df = clean_df.replace(["nan", "None", "NaN"], "")
@@ -558,8 +580,6 @@ def save_sheet_to_gas(sheet_name, df):
         }
         
         headers = {"Content-Type": "application/json"}
-        
-        # 1. Thử gửi POST với JSON Payload
         res = requests.post(GAS_URL, data=json.dumps(payload), headers=headers, allow_redirects=True, timeout=20)
         
         if res.status_code == 200:
@@ -572,12 +592,11 @@ def save_sheet_to_gas(sheet_name, df):
                 pass
             return True
             
-        # 2. Fallback: Nếu gửi JSON không nhận, thử gửi dưới dạng Form Parameter
         fallback_res = requests.post(GAS_URL, data={"payload": json.dumps(payload)}, allow_redirects=True, timeout=20)
         if fallback_res.status_code == 200:
             return True
             
-        st.error(f"⚠️ Google Sheet trả về mã lỗi HTTP: {res.status_code}. Hãy kiểm tra xem bạn đã cấp quyền 'Anyone' (Mọi người) trên Google Apps Script chưa!")
+        st.error(f"⚠️ Google Sheet trả về mã lỗi HTTP: {res.status_code}")
         return False
         
     except Exception as e:
@@ -588,27 +607,11 @@ def init_app_data(force_reload=False):
     if force_reload or 'gas_loaded' not in st.session_state:
         with st.spinner("🔄 Đang đồng bộ & nạp dữ liệu từ Google Trang tính..."):
             gas_data = load_all_from_gas()
-            
-            # 1. Nạp Users
-            u_rows = get_gas_sheet_rows(gas_data, "Users")
-            st.session_state.users_df = normalize_users_df(u_rows, DEFAULT_USERS_DF)
-            
-            # 2. Nạp Students
-            s_rows = get_gas_sheet_rows(gas_data, "Students")
-            st.session_state.students_df = normalize_students_df(s_rows)
-            
-            # 3. Nạp Evaluations
-            e_rows = get_gas_sheet_rows(gas_data, "Evaluations")
-            st.session_state.evaluations_df = normalize_evaluations_df(e_rows)
-            
-            # 4. Nạp DailyLogs
-            d_rows = get_gas_sheet_rows(gas_data, "DailyLogs")
-            st.session_state.daily_logs_df = normalize_dailylogs_df(d_rows)
-            
-            # 5. Nạp Comparisons
-            c_rows = get_gas_sheet_rows(gas_data, "Comparisons")
-            st.session_state.comparisons_df = normalize_comparisons_df(c_rows)
-            
+            st.session_state.users_df = normalize_users_df(get_gas_sheet_rows(gas_data, "Users"), DEFAULT_USERS_DF)
+            st.session_state.students_df = normalize_students_df(get_gas_sheet_rows(gas_data, "Students"))
+            st.session_state.evaluations_df = normalize_evaluations_df(get_gas_sheet_rows(gas_data, "Evaluations"))
+            st.session_state.daily_logs_df = normalize_dailylogs_df(get_gas_sheet_rows(gas_data, "DailyLogs"))
+            st.session_state.comparisons_df = normalize_comparisons_df(get_gas_sheet_rows(gas_data, "Comparisons"))
             st.session_state.gas_loaded = True
 
 init_app_data()
@@ -616,20 +619,17 @@ init_app_data()
 if 'logged_user' not in st.session_state:
     st.session_state.logged_user = None
 
-# Restore login from query params across browser reloads (F5)
 if st.session_state.logged_user is None and hasattr(st, "query_params"):
     saved_user = st.query_params.get("user", None)
     if saved_user:
         st.session_state.logged_user = clean_key(saved_user)
 
 def get_users_dict():
-    """ Đọc từ users_df và chuẩn hóa hỗ trợ cả chữ hoa/thường, xóa đuôi .0 do Excel/GAS ép kiểu số """
     u_dict = {}
     if "users_df" in st.session_state and not st.session_state.users_df.empty:
         for idx, row in st.session_state.users_df.iterrows():
             u_name = str(row.get("username", "")).strip()
             clean_u = clean_key(u_name)
-            
             if clean_u and clean_u != "nan":
                 u_dict[clean_u] = {
                     "raw_username": u_name,
@@ -644,7 +644,6 @@ def get_users_dict():
     return u_dict
 
 def authenticate_user(login_u, login_p, users_dict):
-    """ Kiểm tra đăng nhập không phân biệt hoa thường và tự động xóa khoảng trắng """
     clean_u = clean_key(login_u)
     clean_p = str(login_p).strip()
     
@@ -820,7 +819,7 @@ def render_eq_charts(eval_df, title_prefix=""):
 # -----------------------------------------------------------------------------
 head_col1, head_col2 = st.columns([1.2, 3.8])
 with head_col1:
-    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=330)
+    if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=220)
     else: st.write("☀️ **THE FIRST ACADEMY**")
 with head_col2:
     st.markdown("""
@@ -846,6 +845,7 @@ if st.session_state.logged_user is None:
             </div>
         """, unsafe_allow_html=True)
         
+        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=330)
         
         with st.form(key="login_form"):
             login_user = st.text_input("👤 Tên đăng nhập:", placeholder="Nhập tên đăng nhập...").strip()
@@ -889,9 +889,9 @@ if st.session_state.logged_user is None:
         st.markdown("""
             <div>
                 <span class="campus-badge">🏢 TFA Hà Đô (Phường Cát Lái, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>
+                <span class="campus-badge">🏢 TFA Dương Bạch Mai ( Phường Chánh Hưng, TP.HCM)</span>
                 <span class="campus-badge">🏢 TFA Him Lam (Phường Tân Hưng, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Dương Bạch Mai (Phường Chánh Hưng, TP.HCM)</span>
-                <span class="campus-badge">🏢 TFA Lê Văn Sỹ (Phường Phú Nhuận, TP.HCM)</span>  
                 <span class="campus-badge">🏢 TFA Trần Thị Lý (Phường Hòa Cường, TP.Đà Nẵng)</span>
             </div>
         """, unsafe_allow_html=True)
@@ -956,6 +956,9 @@ else:
                             "campus": CAMPUS_MAP[BGH_code], "class_name": "Tất cả", "status": "active"
                         }])
                         st.session_state.users_df = pd.concat([st.session_state.users_df, new_row], ignore_index=True)
+                        st.session_state.users_df["_clean"] = st.session_state.users_df["username"].apply(clean_key)
+                        st.session_state.users_df = st.session_state.users_df.drop_duplicates(subset=["_clean"], keep="last").drop(columns=["_clean"])
+                        
                         if save_sheet_to_gas("Users", st.session_state.users_df):
                             st.success(f"🎉 Đã lưu vĩnh viễn trên Google Sheets! TK: `{BGH_u}` | Mật khẩu: `{BGH_p}`")
                             st.rerun()
@@ -1036,6 +1039,9 @@ else:
                                 "campus": my_campus, "class_name": t_class, "status": "active"
                             }])
                             st.session_state.users_df = pd.concat([st.session_state.users_df, new_row], ignore_index=True)
+                            st.session_state.users_df["_clean"] = st.session_state.users_df["username"].apply(clean_key)
+                            st.session_state.users_df = st.session_state.users_df.drop_duplicates(subset=["_clean"], keep="last").drop(columns=["_clean"])
+                            
                             if save_sheet_to_gas("Users", st.session_state.users_df):
                                 st.success(f"🎉 Đã lưu vĩnh viễn giáo viên {t_name} trên Google Sheets! TK: `{gen_u}` | Mật khẩu: `123456`")
                                 st.rerun()
@@ -1175,12 +1181,27 @@ else:
                     clean_name = new_student_val.strip()
                     clean_note = new_student_note.strip()
                     if clean_name:
-                        new_std_row = pd.DataFrame([{
-                            "teacher_user": clean_key(user_key),
-                            "student_name": clean_name,
-                            "student_note": clean_note
-                        }])
-                        st.session_state.students_df = pd.concat([st.session_state.students_df, new_std_row], ignore_index=True)
+                        t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
+                        s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
+                        
+                        existing_mask = (
+                            (st.session_state.students_df[t_col].apply(clean_key) == clean_key(user_key)) &
+                            (st.session_state.students_df[s_col].apply(clean_key) == clean_key(clean_name))
+                        )
+                        if existing_mask.any():
+                            st.session_state.students_df.loc[existing_mask, "student_note"] = clean_note
+                        else:
+                            new_std_row = pd.DataFrame([{
+                                "teacher_user": clean_key(user_key),
+                                "student_name": clean_name,
+                                "student_note": clean_note
+                            }])
+                            st.session_state.students_df = pd.concat([st.session_state.students_df, new_std_row], ignore_index=True)
+                            
+                        st.session_state.students_df["_t_clean"] = st.session_state.students_df[t_col].apply(clean_key)
+                        st.session_state.students_df["_s_clean"] = st.session_state.students_df[s_col].apply(clean_key)
+                        st.session_state.students_df = st.session_state.students_df.drop_duplicates(subset=["_t_clean", "_s_clean"], keep="last").drop(columns=["_t_clean", "_s_clean"])
+                        
                         if save_sheet_to_gas("Students", st.session_state.students_df):
                             st.success(f"🎉 Đã lưu vĩnh viễn bé **{clean_name}** vào danh sách lớp!")
                             st.rerun()
@@ -1244,7 +1265,7 @@ else:
             else:
                 col_s1, col_s2, col_s3 = st.columns([1.5, 1.5, 1])
                 with col_s1: std_select = st.selectbox("👦/👧 Chọn học sinh:", my_stds)
-                with col_s2: log_date = st.date_input("🗓️ Ngày theo dõi:", value=datetime.today())
+                with col_s2: log_date = st.date_input("🗓️ Chọn Ngày cần nhập / xem lại:", value=datetime.today())
                 with col_s3:
                     std_match = my_stds_df[my_stds_df[s_col] == std_select] if not my_stds_df.empty and s_col in my_stds_df.columns else pd.DataFrame()
                     
@@ -1265,16 +1286,103 @@ else:
                     else:
                         st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
                 
-                dynamic_prefix = f"{std_select}_{log_date}"
+                selected_date_str = log_date.strftime("%d/%m/%Y")
                 
+                d_df = st.session_state.daily_logs_df
+                existing_log = None
+                
+                if not d_df.empty:
+                    d_t_col = "teacher" if "teacher" in d_df.columns else "Teacher"
+                    d_s_col = "student" if "student" in d_df.columns else "Student"
+                    d_d_col = "date" if "date" in d_df.columns else "Date"
+                    
+                    match_log_mask = (
+                        (d_df[d_t_col].apply(clean_key) == clean_key(user_info['name'])) &
+                        (d_df[d_s_col].apply(clean_key) == clean_key(std_select)) &
+                        (d_df[d_d_col].astype(str).str.strip() == selected_date_str)
+                    )
+                    
+                    if match_log_mask.any():
+                        existing_log = d_df[match_log_mask].iloc[-1]
+                
+                if existing_log is not None:
+                    st.success(f"ℹ️ **Đã tìm thấy Nhật ký ngày {selected_date_str} của bé {std_select}.** Bạn có thể xem lại hoặc chỉnh sửa thông tin bên dưới rồi bấm Lưu!")
+                else:
+                    st.info(f"🗓️ Ngày **{selected_date_str}** chưa có nhật ký. Nhập thông tin bên dưới để tạo mới!")
+
+                saved_details_json = {}
+                saved_note_context = ""
+                saved_note_interv = ""
+                saved_summary = ""
+                saved_trend = "Duy trì cảm xúc tích cực, vui vẻ cả ngày"
+                saved_custom_trend = ""
+                
+                if existing_log is not None:
+                    saved_note_context = str(existing_log.get("note", existing_log.get("Note", "")))
+                    if saved_note_context.lower() in ["nan", "none"]: saved_note_context = ""
+                    
+                    saved_note_interv = str(existing_log.get("intervention", existing_log.get("Intervention", "")))
+                    if saved_note_interv.lower() in ["nan", "none"]: saved_note_interv = ""
+                    
+                    raw_summary_val = str(existing_log.get("summary", existing_log.get("Summary", "")))
+                    if raw_summary_val.lower() in ["nan", "none"]: raw_summary_val = ""
+                    
+                    if raw_summary_val.startswith("[") and "]" in raw_summary_val:
+                        parts = raw_summary_val.split("]", 1)
+                        trend_in_bracket = parts[0].replace("[", "").strip()
+                        saved_summary = parts[1].strip()
+                        
+                        daily_trend_options_base = [
+                            "Duy trì cảm xúc tích cực, vui vẻ cả ngày",
+                            "Có xáo trộn nhỏ ở đầu ngày, nhanh chóng cân bằng",
+                            "Tự tin, hào hứng tham gia các hoạt động nhóm",
+                            "Hơi thu mình, rụt rè nhưng hợp tác khi cô khuyến khích",
+                            "Dễ kích động, cần cô hỗ trợ xoa dịu và theo dõi sát"
+                        ]
+                        
+                        if trend_in_bracket in daily_trend_options_base:
+                            saved_trend = trend_in_bracket
+                        else:
+                            saved_trend = "Khác (Tự nhập nhận xét riêng...)"
+                            saved_custom_trend = trend_in_bracket
+                    else:
+                        saved_summary = raw_summary_val
+
+                    raw_json_str = str(existing_log.get("details_json", existing_log.get("Details_Json", "")))
+                    if raw_json_str and raw_json_str.startswith("{"):
+                        try:
+                            saved_details_json = json.loads(raw_json_str)
+                        except Exception:
+                            saved_details_json = {}
+
                 st.markdown("---")
                 st.markdown("#### 1. Hoạt động trong ngày")
                 
-                df_routine_init = pd.DataFrame([{
-                    "Hoạt động": r, "Vui 😊": False, "Buồn 😢": False, "Giận 😡": False,
-                    "Yêu thương 🥰": False, "Hào hứng 🤩": False, "Lo lắng 😮‍💨": False, "Tự hào 🌟": False,
-                    "Ghi chú chi tiết hành vi": ""
-                } for r in TFA_ROUTINES])
+                routine_rows = []
+                for r in TFA_ROUTINES:
+                    r_item = {"Hoạt động": r}
+                    
+                    act_data = saved_details_json.get(r, {}) if saved_details_json else {}
+                    active_emos = act_data.get("emotions", []) if isinstance(act_data, dict) else []
+                    act_note = act_data.get("note", "") if isinstance(act_data, dict) else ""
+                    
+                    if not saved_details_json and existing_log is not None:
+                        old_emos_text = str(existing_log.get("emotions", existing_log.get("Emotions", "")))
+                        if r in old_emos_text:
+                            for e_col in EMOTION_COLS:
+                                e_name = e_col.split(" ")[0]
+                                if e_name in old_emos_text:
+                                    active_emos.append(e_col)
+
+                    for e_col in EMOTION_COLS:
+                        r_item[e_col] = True if e_col in active_emos else False
+                        
+                    r_item["Ghi chú chi tiết hành vi"] = act_note
+                    routine_rows.append(r_item)
+                
+                df_routine_init = pd.DataFrame(routine_rows)
+                
+                dynamic_prefix = f"{clean_key(std_select)}_{selected_date_str.replace('/', '_')}"
                 
                 edited_routine_df = st.data_editor(
                     df_routine_init,
@@ -1286,28 +1394,40 @@ else:
                 )
                 
                 st.markdown("---")
+
+                daily_trend_options = [
+                    "Duy trì cảm xúc tích cực, vui vẻ cả ngày",
+                    "Có xáo trộn nhỏ ở đầu ngày, nhanh chóng cân bằng",
+                    "Tự tin, hào hứng tham gia các hoạt động nhóm",
+                    "Hơi thu mình, rụt rè nhưng hợp tác khi cô khuyến khích",
+                    "Dễ kích động, cần cô hỗ trợ xoa dịu và theo dõi sát",
+                    "Khác (Tự nhập nhận xét riêng...)"
+                ]
+                
+                trend_index = daily_trend_options.index(saved_trend) if saved_trend in daily_trend_options else 5
+
                 with st.form(key=f"daily_form_{dynamic_prefix}"):
                     col_o1, col_o2 = st.columns(2)
-                    with col_o1: note_context = st.text_area("📌 Bối cảnh và biểu hiện nổi bật:")
-                    with col_o2: note_intervention = st.text_area("🤝 Can thiệp và hỗ trợ của giáo viên:")
+                    with col_o1: note_context = st.text_area("📌 Bối cảnh và biểu hiện nổi bật:", value=saved_note_context)
+                    with col_o2: note_intervention = st.text_area("🤝 Can thiệp và hỗ trợ của giáo viên:", value=saved_note_interv)
                         
                     st.markdown("---")
                     col_d1, col_d2 = st.columns(2)
                     with col_d1:
-                        daily_trend_options = [
-                            "Duy trì cảm xúc tích cực, vui vẻ cả ngày",
-                            "Có xáo trộn nhỏ ở đầu ngày, nhanh chóng cân bằng",
-                            "Tự tin, hào hứng tham gia các hoạt động nhóm",
-                            "Hơi thu mình, rụt rè nhưng hợp tác khi cô khuyến khích",
-                            "Dễ kích động, cần cô hỗ trợ xoa dịu và theo dõi sát",
-                            "Khác (Tự nhập nhận xét riêng...)"
-                        ]
-                        sel_trend = st.selectbox("📈 Xu hướng cảm xúc chung trong ngày:", daily_trend_options, key=f"trend_sel_{dynamic_prefix}")
-                        custom_trend_text = ""
-                        if sel_trend == "Khác (Tự nhập nhận xét riêng...)":
-                            custom_trend_text = st.text_input("✍️ Nhập xu hướng riêng:", key=f"custom_trend_{dynamic_prefix}")
+                        sel_trend = st.selectbox(
+                            "📈 Xu hướng cảm xúc chung trong ngày:", 
+                            daily_trend_options, 
+                            index=trend_index, 
+                            key=f"trend_sel_{dynamic_prefix}"
+                        )
+                        
+                        custom_trend_text = st.text_input(
+                            "✍️ Nhập xu hướng riêng (khi chọn Khác):", 
+                            value=saved_custom_trend, 
+                            key=f"custom_trend_input_{dynamic_prefix}"
+                        )
                             
-                    with col_d2: daily_summary = st.text_area("💬 Nhận xét bổ sung của giáo viên:")
+                    with col_d2: daily_summary = st.text_area("💬 Nhận xét bổ sung của giáo viên:", value=saved_summary)
                     
                     btn_save_daily = st.form_submit_button("💾 LƯU HỒ SƠ CẢM XÚC HẰNG NGÀY")
                     
@@ -1325,20 +1445,44 @@ else:
                         
                         full_emotions_str = " | ".join(emotions_summary_list) if emotions_summary_list else "Bình thường"
                         json_str = json.dumps(details_dict, ensure_ascii=False)
+                        
                         final_trend_str = custom_trend_text.strip() if sel_trend == "Khác (Tự nhập nhận xét riêng...)" and custom_trend_text.strip() else sel_trend
                         
-                        new_log = pd.DataFrame([{
-                            "teacher": user_info['name'], "campus": user_info['campus'],
-                            "class": user_info.get('class_name', 'Pre-school (3-4 tuổi)'),
-                            "student": std_select, "date": log_date.strftime("%d/%m/%Y"),
-                            "routine": "Toàn bộ hoạt động trong ngày", "emotions": full_emotions_str,
-                            "note": note_context, "intervention": note_intervention,
-                            "summary": f"[{final_trend_str}] {daily_summary}", "details_json": json_str
-                        }])
+                        d_df = st.session_state.daily_logs_df
+                        d_t_col = "teacher" if "teacher" in d_df.columns else "Teacher"
+                        d_s_col = "student" if "student" in d_df.columns else "Student"
+                        d_d_col = "date" if "date" in d_df.columns else "Date"
                         
-                        st.session_state.daily_logs_df = pd.concat([st.session_state.daily_logs_df, new_log], ignore_index=True)
+                        existing_mask = (
+                            (d_df[d_t_col].apply(clean_key) == clean_key(user_info['name'])) &
+                            (d_df[d_s_col].apply(clean_key) == clean_key(std_select)) &
+                            (d_df[d_d_col].astype(str).str.strip() == selected_date_str)
+                        )
+                        
+                        if existing_mask.any():
+                            st.session_state.daily_logs_df.loc[existing_mask, "emotions"] = full_emotions_str
+                            st.session_state.daily_logs_df.loc[existing_mask, "note"] = note_context
+                            st.session_state.daily_logs_df.loc[existing_mask, "intervention"] = note_intervention
+                            st.session_state.daily_logs_df.loc[existing_mask, "summary"] = f"[{final_trend_str}] {daily_summary}"
+                            st.session_state.daily_logs_df.loc[existing_mask, "details_json"] = json_str
+                        else:
+                            new_log = pd.DataFrame([{
+                                "teacher": user_info['name'], "campus": user_info['campus'],
+                                "class": user_info.get('class_name', 'Pre-school (3-4 tuổi)'),
+                                "student": std_select, "date": selected_date_str,
+                                "routine": "Toàn bộ hoạt động trong ngày", "emotions": full_emotions_str,
+                                "note": note_context, "intervention": note_intervention,
+                                "summary": f"[{final_trend_str}] {daily_summary}", "details_json": json_str
+                            }])
+                            st.session_state.daily_logs_df = pd.concat([st.session_state.daily_logs_df, new_log], ignore_index=True)
+                        
+                        st.session_state.daily_logs_df["_t"] = st.session_state.daily_logs_df[d_t_col].apply(clean_key)
+                        st.session_state.daily_logs_df["_s"] = st.session_state.daily_logs_df[d_s_col].apply(clean_key)
+                        st.session_state.daily_logs_df["_d"] = st.session_state.daily_logs_df[d_d_col].astype(str).str.strip()
+                        st.session_state.daily_logs_df = st.session_state.daily_logs_df.drop_duplicates(subset=["_t", "_s", "_d"], keep="last").drop(columns=["_t", "_s", "_d"])
+
                         if save_sheet_to_gas("DailyLogs", st.session_state.daily_logs_df):
-                            st.success(f"🎉 Đã lưu vĩnh viễn Hồ sơ cảm xúc cho bé **{std_select}**!")
+                            st.success(f"🎉 Đã lưu vĩnh viễn Hồ sơ cảm xúc ngày {selected_date_str} cho bé **{std_select}**!")
                             st.rerun()
 
         elif main_menu == "🎯 3. Đánh giá EQ 6 Tiêu chí":
@@ -1433,15 +1577,49 @@ else:
                 
                 with col_save_btn:
                     if st.button("💾 Lưu Bảng Đánh Giá EQ Lên Google Sheets"):
-                        new_eval = pd.DataFrame([{
-                            "teacher": user_info['name'], "campus": user_info['campus'],
-                            "class": user_info.get('class_name', curr_age_group), "student": std_eval,
-                            "school_year": eval_school_year, "term": term, "eval_date": eval_date_str,
-                            "tc1": tc1_val, "tc2": tc2_val, "tc3": tc3_val, "tc4": tc4_val, "tc5": tc5_val, "tc6": tc6_val,
-                            "p_eq": peq, "group_clean": group_clean,
-                            "context": context_input, "conclusion": conclusion_input, "plan": plan_input
-                        }])
-                        st.session_state.evaluations_df = pd.concat([st.session_state.evaluations_df, new_eval], ignore_index=True)
+                        e_df = st.session_state.evaluations_df
+                        e_t_col = "teacher" if "teacher" in e_df.columns else "Teacher"
+                        e_s_col = "student" if "student" in e_df.columns else "Student"
+                        e_term_col = "term" if "term" in e_df.columns else "Term"
+                        e_y_col = "school_year" if "school_year" in e_df.columns else "School_Year"
+                        
+                        existing_mask = (
+                            (e_df[e_t_col].apply(clean_key) == clean_key(user_info['name'])) &
+                            (e_df[e_s_col].apply(clean_key) == clean_key(std_eval)) &
+                            (e_df[e_term_col].astype(str).str.strip() == str(term).strip()) &
+                            (e_df[e_y_col].astype(str).str.strip() == str(eval_school_year).strip())
+                        )
+                        
+                        if existing_mask.any():
+                            st.session_state.evaluations_df.loc[existing_mask, "eval_date"] = eval_date_str
+                            st.session_state.evaluations_df.loc[existing_mask, "tc1"] = tc1_val
+                            st.session_state.evaluations_df.loc[existing_mask, "tc2"] = tc2_val
+                            st.session_state.evaluations_df.loc[existing_mask, "tc3"] = tc3_val
+                            st.session_state.evaluations_df.loc[existing_mask, "tc4"] = tc4_val
+                            st.session_state.evaluations_df.loc[existing_mask, "tc5"] = tc5_val
+                            st.session_state.evaluations_df.loc[existing_mask, "tc6"] = tc6_val
+                            st.session_state.evaluations_df.loc[existing_mask, "p_eq"] = peq
+                            st.session_state.evaluations_df.loc[existing_mask, "group_clean"] = group_clean
+                            st.session_state.evaluations_df.loc[existing_mask, "context"] = context_input
+                            st.session_state.evaluations_df.loc[existing_mask, "conclusion"] = conclusion_input
+                            st.session_state.evaluations_df.loc[existing_mask, "plan"] = plan_input
+                        else:
+                            new_eval = pd.DataFrame([{
+                                "teacher": user_info['name'], "campus": user_info['campus'],
+                                "class": user_info.get('class_name', curr_age_group), "student": std_eval,
+                                "school_year": eval_school_year, "term": term, "eval_date": eval_date_str,
+                                "tc1": tc1_val, "tc2": tc2_val, "tc3": tc3_val, "tc4": tc4_val, "tc5": tc5_val, "tc6": tc6_val,
+                                "p_eq": peq, "group_clean": group_clean,
+                                "context": context_input, "conclusion": conclusion_input, "plan": plan_input
+                            }])
+                            st.session_state.evaluations_df = pd.concat([st.session_state.evaluations_df, new_eval], ignore_index=True)
+                            
+                        st.session_state.evaluations_df["_t"] = st.session_state.evaluations_df[e_t_col].apply(clean_key)
+                        st.session_state.evaluations_df["_s"] = st.session_state.evaluations_df[e_s_col].apply(clean_key)
+                        st.session_state.evaluations_df["_term"] = st.session_state.evaluations_df[e_term_col].astype(str).str.strip()
+                        st.session_state.evaluations_df["_y"] = st.session_state.evaluations_df[e_y_col].astype(str).str.strip()
+                        st.session_state.evaluations_df = st.session_state.evaluations_df.drop_duplicates(subset=["_t", "_s", "_term", "_y"], keep="last").drop(columns=["_t", "_s", "_term", "_y"])
+
                         if save_sheet_to_gas("Evaluations", st.session_state.evaluations_df):
                             st.success(f"🎉 Đã lưu vĩnh viễn đánh giá EQ cho bé **{std_eval}**!")
                             st.rerun()
@@ -1503,62 +1681,102 @@ else:
                 
                 with col_save_cmp:
                     if st.button("💾 Lưu Bảng So Sánh Xu Hướng EQ"):
-                        new_comp = pd.DataFrame([{
-                            "teacher": user_info['name'], "campus": user_info['campus'],
-                            "class": user_info.get('class_name', 'Mầm'), "student": std_comp,
-                            "school_year": comp_school_year, "comp_type": comp_type,
-                            "period_1": period_1_label, "period_2": period_2_label,
-                            "score_term1": score_t1, "score_term2": score_t2,
-                            "delta": delta_score, "trend": trend_tag,
-                            "conclusion": c_input, "plan": p_input, "comp_date": comp_date_str
-                        }])
-                        st.session_state.comparisons_df = pd.concat([st.session_state.comparisons_df, new_comp], ignore_index=True)
+                        c_df = st.session_state.comparisons_df
+                        c_t_col = "teacher" if "teacher" in c_df.columns else "Teacher"
+                        c_s_col = "student" if "student" in c_df.columns else "Student"
+                        c_type_col = "comp_type" if "comp_type" in c_df.columns else "Comp_Type"
+                        c_p1_col = "period_1" if "period_1" in c_df.columns else "Period_1"
+                        c_p2_col = "period_2" if "period_2" in c_df.columns else "Period_2"
+                        
+                        existing_mask = (
+                            (c_df[c_t_col].apply(clean_key) == clean_key(user_info['name'])) &
+                            (c_df[c_s_col].apply(clean_key) == clean_key(std_comp)) &
+                            (c_df[c_type_col].astype(str).str.strip() == str(comp_type).strip()) &
+                            (c_df[c_p1_col].astype(str).str.strip() == str(period_1_label).strip()) &
+                            (c_df[c_p2_col].astype(str).str.strip() == str(period_2_label).strip())
+                        )
+                        
+                        if existing_mask.any():
+                            st.session_state.comparisons_df.loc[existing_mask, "comp_date"] = comp_date_str
+                            st.session_state.comparisons_df.loc[existing_mask, "score_term1"] = score_t1
+                            st.session_state.comparisons_df.loc[existing_mask, "score_term2"] = score_t2
+                            st.session_state.comparisons_df.loc[existing_mask, "delta"] = delta_score
+                            st.session_state.comparisons_df.loc[existing_mask, "trend"] = trend_tag
+                            st.session_state.comparisons_df.loc[existing_mask, "conclusion"] = c_input
+                            st.session_state.comparisons_df.loc[existing_mask, "plan"] = p_input
+                        else:
+                            new_comp = pd.DataFrame([{
+                                "teacher": user_info['name'], "campus": user_info['campus'],
+                                "class": user_info.get('class_name', 'Kindergarten (4-5 tuổi)'), "student": std_comp,
+                                "school_year": comp_school_year, "comp_type": comp_type,
+                                "period_1": period_1_label, "period_2": period_2_label,
+                                "score_term1": score_t1, "score_term2": score_t2,
+                                "delta": delta_score, "trend": trend_tag,
+                                "conclusion": c_input, "plan": p_input, "comp_date": comp_date_str
+                            }])
+                            st.session_state.comparisons_df = pd.concat([st.session_state.comparisons_df, new_comp], ignore_index=True)
+                            
+                        st.session_state.comparisons_df["_t"] = st.session_state.comparisons_df[c_t_col].apply(clean_key)
+                        st.session_state.comparisons_df["_s"] = st.session_state.comparisons_df[c_s_col].apply(clean_key)
+                        st.session_state.comparisons_df["_p1"] = st.session_state.comparisons_df[c_p1_col].astype(str).str.strip()
+                        st.session_state.comparisons_df["_p2"] = st.session_state.comparisons_df[c_p2_col].astype(str).str.strip()
+                        st.session_state.comparisons_df = st.session_state.comparisons_df.drop_duplicates(subset=["_t", "_s", "_p1", "_p2"], keep="last").drop(columns=["_t", "_s", "_p1", "_p2"])
+
                         if save_sheet_to_gas("Comparisons", st.session_state.comparisons_df):
-                            st.success(f"🎉 Đã lưu vĩnh viễn dữ liệu so sánh cho bé **{std_comp}**!")
+                            st.success(f"🎉 Đã lưu Bảng So Sánh Xu Hướng EQ cho bé **{std_comp}**!")
                             st.rerun()
 
                 with col_exp_cmp:
                     single_comp_df = pd.DataFrame([{
                         "teacher": user_info['name'], "campus": user_info['campus'],
-                        "class": user_info.get('class_name', 'Mầm'), "student": std_comp,
+                        "class": user_info.get('class_name', 'Kindergarten (4-5 tuổi)'), "student": std_comp,
                         "school_year": comp_school_year, "comp_type": comp_type,
                         "period_1": period_1_label, "period_2": period_2_label,
                         "score_term1": score_t1, "score_term2": score_t2,
                         "delta": delta_score, "trend": trend_tag,
                         "conclusion": c_input, "plan": p_input, "comp_date": comp_date_str
                     }])
-                    single_comp_exp = format_comparisons_export(single_comp_df)
+                    single_export_cmp = format_comparisons_export(single_comp_df)
                     st.download_button(
-                        f"📄 Xuất Báo Cáo Xu Hướng EQ Riêng Cho Bé {std_comp}",
-                        single_comp_exp.to_csv(index=False).encode('utf-8-sig'),
-                        f"Bao_Cao_Xu_Huong_EQ_{std_comp}_{comp_date_val.strftime('%Y%m%d')}.csv", "text/csv"
+                        f"📄 Xuất Bảng So Sánh EQ Riêng Cho Bé {std_comp}",
+                        single_export_cmp.to_csv(index=False).encode('utf-8-sig'),
+                        f"Bang_So_Sanh_EQ_{std_comp}_{comp_date_val.strftime('%Y%m%d')}.csv", "text/csv"
                     )
 
         else:
-            st.subheader("📊 BÁO CÁO TỔNG HỢP & XUẤT FILE ĐÁNH GIÁ EQ CỦA LỚP")
+            st.subheader("📊 BÁO CÁO TỔNG HỢP EQ VÀ XU HƯỚNG CỦA LỚP")
             
-            tab_rep1, tab_rep2 = st.tabs(["📋 1. Bảng Kết Quả Đánh Giá EQ (6 Tiêu Chí)", "📈 2. Bảng So Sánh Xu Hướng EQ"])
+            t_col = "teacher" if "teacher" in st.session_state.evaluations_df.columns else "Teacher"
+            df_my_eval = filter_df_by_clean_col(st.session_state.evaluations_df, t_col, user_info['name'])
+            df_my_eval_export = format_evaluations_export(df_my_eval)
             
-            with tab_rep1:
-                t_col = "teacher" if "teacher" in st.session_state.evaluations_df.columns else "Teacher"
-                my_evals = filter_df_by_clean_col(st.session_state.evaluations_df, t_col, user_info['name'])
-                df_eval_export = format_evaluations_export(my_evals)
-                st.dataframe(df_eval_export, use_container_width=True)
-                
+            st.markdown("##### 1. Bảng Đánh Giá EQ 6 Tiêu Chí Của Lớp")
+            st.dataframe(df_my_eval_export, use_container_width=True)
+            
+            if not df_my_eval.empty:
+                render_eq_charts(df_my_eval, f"LỚP {user_info.get('class_name', '')}")
+            
+            st.markdown("---")
+            st.markdown("##### 2. Bảng Xu Hướng & So Sánh EQ Của Lớp")
+            
+            tc_col = "teacher" if "teacher" in st.session_state.comparisons_df.columns else "Teacher"
+            df_my_comp = filter_df_by_clean_col(st.session_state.comparisons_df, tc_col, user_info['name'])
+            df_my_comp_export = format_comparisons_export(df_my_comp)
+            
+            st.dataframe(df_my_comp_export, use_container_width=True)
+            st.markdown("##### 📊 Thống Kê Biến Thiên EQ Toàn Lớp")
+            st.table(calculate_class_stats(df_my_comp))
+            
+            col_dwn1, col_dwn2 = st.columns(2)
+            with col_dwn1:
                 st.download_button(
-                    "📥 XUẤT FILE EXCEL/CSV BẢNG TỔNG HỢP EQ TOÀN LỚP CHUẨN MẪU",
-                    df_eval_export.to_csv(index=False).encode('utf-8-sig'),
-                    f"Bang_Tong_Hop_EQ_Lop_{user_info.get('class_name', '')}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
+                    "📥 Xuất CSV/Excel Bảng Tổng Hợp EQ Lớp",
+                    df_my_eval_export.to_csv(index=False).encode('utf-8-sig'),
+                    f"Bao_Cao_EQ_Lop_{user_info['name']}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
                 )
-
-            with tab_rep2:
-                t_col = "teacher" if "teacher" in st.session_state.comparisons_df.columns else "Teacher"
-                my_comps = filter_df_by_clean_col(st.session_state.comparisons_df, t_col, user_info['name'])
-                df_comp_export = format_comparisons_export(my_comps)
-                st.dataframe(df_comp_export, use_container_width=True)
-                
+            with col_dwn2:
                 st.download_button(
-                    "📥 XUẤT FILE EXCEL/CSV BẢNG XU HƯỚNG EQ TOÀN LỚP CHUẨN MẪU",
-                    df_comp_export.to_csv(index=False).encode('utf-8-sig'),
-                    f"Bang_Xu_Huong_EQ_Lop_{user_info.get('class_name', '')}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
+                    "📥 Xuất CSV/Excel Bảng Xu Hướng EQ Lớp",
+                    df_my_comp_export.to_csv(index=False).encode('utf-8-sig'),
+                    f"Bang_Xu_Huong_EQ_Lop_{user_info['name']}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
                 )
