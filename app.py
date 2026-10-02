@@ -23,7 +23,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
-GAS_URL = "import streamlit as st
+GAS_URL = "import streamlit as st"
 import pandas as pd
 import requests
 import os
@@ -36,7 +36,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
-GAS_URL = "import streamlit as st
+GAS_URL = "import streamlit as st"
 import pandas as pd
 import requests
 import os
@@ -48,7 +48,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
-GAS_URL = "import streamlit as st
+GAS_URL = "import streamlit as st"
 import pandas as pd
 import requests
 import os
@@ -61,7 +61,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
-GAS_URL = "import streamlit as st
+GAS_URL = "import streamlit as st"
 import pandas as pd
 import requests
 import os
