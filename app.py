@@ -27,6 +27,73 @@ def clean_key(val):
         s = s[1:]
     return s
 
+def clean_date_str(val):
+    """ Chuẩn hóa mọi kiểu chuỗi ngày về dạng DD/MM/YYYY """
+    if not val or pd.isna(val):
+        return ""
+    s = str(val).strip().split("T")[0].split(" ")[0]
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y", "%d/%m/%y"):
+        try:
+            dt = datetime.strptime(s, fmt)
+            return dt.strftime("%d/%m/%Y")
+        except ValueError:
+            pass
+    parts = s.replace("-", "/").split("/")
+    if len(parts) == 3:
+        try:
+            if len(parts[0]) == 4:
+                return f"{int(parts[2]):02d}/{int(parts[1]):02d}/{int(parts[0]):04d}"
+            else:
+                return f"{int(parts[0]):02d}/{int(parts[1]):02d}/{int(parts[2]):04d}"
+        except Exception:
+            pass
+    return s
+
+def is_teacher_match(val, teacher_key, teacher_name):
+    """ Khớp linh hoạt tài khoản giáo viên qua SĐT, Tên đăng nhập hoặc Họ tên """
+    if val is None or pd.isna(val) or str(val).strip() == "":
+        return True
+    v_clean = clean_key(val)
+    if not v_clean:
+        return True
+    k_clean = clean_key(teacher_key)
+    n_clean = clean_key(teacher_name)
+    if v_clean in [k_clean, n_clean]:
+        return True
+    v_digits = "".join(c for c in v_clean if c.isdigit())
+    k_digits = "".join(c for c in k_clean if c.isdigit())
+    if v_digits and k_digits and (v_digits == k_digits or v_digits in k_digits or k_digits in v_digits):
+        return True
+    v_words = set(v_clean.replace("_", " ").split())
+    n_words = set(n_clean.replace("_", " ").split())
+    if v_words and n_words and (v_words.issubset(n_words) or n_words.issubset(v_words)):
+        return True
+    return False
+
+def is_student_match(val_in_df, target_student):
+    """ Khớp linh hoạt tên học sinh có/không chứa tiền tố Bé """
+    if val_in_df is None or pd.isna(val_in_df):
+        return False
+    v_clean = clean_key(val_in_df)
+    t_clean = clean_key(target_student)
+    if not v_clean or not t_clean:
+        return False
+    if v_clean == t_clean:
+        return True
+    v_nob = v_clean[2:].strip() if v_clean.startswith("be") else v_clean
+    t_nob = t_clean[2:].strip() if t_clean.startswith("be") else t_clean
+    if v_nob == t_nob:
+        return True
+    if len(v_nob) > 3 and len(t_nob) > 3 and (v_nob in t_nob or t_nob in v_nob):
+        return True
+    return False
+
+def filter_teacher_records(df, teacher_col, user_key, user_name):
+    """ Lọc dữ liệu của Giáo viên theo SĐT / Tên / Username """
+    if df is None or df.empty or teacher_col not in df.columns:
+        return pd.DataFrame()
+    mask = df[teacher_col].apply(lambda v: is_teacher_match(v, user_key, user_name))
+    return df[mask]
 def filter_df_by_clean_col(df, col_name, target_val):
     """ Lọc DataFrame không lo phân biệt hoa/thường, khoảng trắng, số 0 ở đầu hay đuôi .0 """
     if df is None or df.empty or col_name not in df.columns:
@@ -306,17 +373,19 @@ CRITERIA_DATA = {
 # -----------------------------------------------------------------------------
 # 🤖 THUẬT TOÁN MA TRẬN TỰ ĐỘNG "NHẶT" MINH CHỨNG VÀO 6 TIÊU CHÍ EQ
 # -----------------------------------------------------------------------------
-def auto_map_daily_to_criteria(student_name, teacher_name, daily_df):
+def auto_map_daily_to_criteria(student_name, teacher_name, daily_df, teacher_key=""):
     if daily_df is None or daily_df.empty:
         return None
     
     t_col = "teacher" if "teacher" in daily_df.columns else "Teacher"
     s_col = "student" if "student" in daily_df.columns else "Student"
     
-    std_logs = daily_df[
-        (daily_df[s_col].apply(clean_key) == clean_key(student_name)) & 
-        (daily_df[t_col].apply(clean_key) == clean_key(teacher_name))
-    ]
+    std_mask = daily_df.apply(
+        lambda r: is_teacher_match(r.get(t_col), teacher_key, teacher_name) and
+                  is_student_match(r.get(s_col), student_name),
+        axis=1
+    )
+    std_logs = daily_df[std_mask]
     if std_logs.empty:
         return None
         
@@ -1210,7 +1279,7 @@ else:
             st.markdown("##### 📋 Danh Sách Học Sinh Trong Lớp")
             
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
-            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
+            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
             
             if not my_stds_df.empty:
                 for idx in my_stds_df.index:
@@ -1257,7 +1326,7 @@ else:
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
             s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
             
-            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
+            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
             my_stds = my_stds_df[s_col].tolist() if not my_stds_df.empty and s_col in my_stds_df.columns else []
             
             if not my_stds:
@@ -1287,6 +1356,7 @@ else:
                         st.info(f"🏫 Lớp: **{user_info.get('class_name', 'Mầm')}**")
                 
                 selected_date_str = log_date.strftime("%d/%m/%Y")
+                target_date_clean = clean_date_str(selected_date_str)
                 
                 d_df = st.session_state.daily_logs_df
                 existing_log = None
@@ -1296,10 +1366,11 @@ else:
                     d_s_col = "student" if "student" in d_df.columns else "Student"
                     d_d_col = "date" if "date" in d_df.columns else "Date"
                     
-                    match_log_mask = (
-                        (d_df[d_t_col].apply(clean_key) == clean_key(user_info['name'])) &
-                        (d_df[d_s_col].apply(clean_key) == clean_key(std_select)) &
-                        (d_df[d_d_col].astype(str).str.strip() == selected_date_str)
+                    match_log_mask = d_df.apply(
+                        lambda r: is_teacher_match(r.get(d_t_col), user_key, user_info['name']) and
+                                  is_student_match(r.get(d_s_col), std_select) and
+                                  clean_date_str(r.get(d_d_col)) == target_date_clean,
+                        axis=1
                     )
                     
                     if match_log_mask.any():
@@ -1453,10 +1524,11 @@ else:
                         d_s_col = "student" if "student" in d_df.columns else "Student"
                         d_d_col = "date" if "date" in d_df.columns else "Date"
                         
-                        existing_mask = (
-                            (d_df[d_t_col].apply(clean_key) == clean_key(user_info['name'])) &
-                            (d_df[d_s_col].apply(clean_key) == clean_key(std_select)) &
-                            (d_df[d_d_col].astype(str).str.strip() == selected_date_str)
+                        existing_mask = d_df.apply(
+                            lambda r: is_teacher_match(r.get(d_t_col), user_key, user_info['name']) and
+                                      is_student_match(r.get(d_s_col), std_select) and
+                                      clean_date_str(r.get(d_d_col)) == target_date_clean,
+                            axis=1
                         )
                         
                         if existing_mask.any():
@@ -1490,7 +1562,7 @@ else:
             
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
             s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
-            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
+            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
             my_stds = my_stds_df[s_col].tolist() if not my_stds_df.empty and s_col in my_stds_df.columns else []
             
             if not my_stds: st.warning("⚠️ Lớp bạn chưa có học sinh.")
@@ -1514,7 +1586,7 @@ else:
                 st.info(f"📘 Bộ tiêu chí: **{curr_age_group}** | 📅 Ngày đánh giá: **{eval_date_str}** | 🏫 Năm học: **{eval_school_year}**")
                 
                 if st.button("⚡ TỰ ĐỘNG TỔNG HỢP EQ THÁNG (1-CLICK TỪ NHẬT KÝ HẰNG NGÀY)"):
-                    mapped_res = auto_map_daily_to_criteria(std_eval, user_info['name'], st.session_state.daily_logs_df)
+                    mapped_res = auto_map_daily_to_criteria(std_eval, user_info['name'], st.session_state.daily_logs_df, teacher_key=user_key)
                     if mapped_res:
                         st.session_state[f"tc1_{std_eval}"] = mapped_res["TC1"]
                         st.session_state[f"tc2_{std_eval}"] = mapped_res["TC2"]
@@ -1583,11 +1655,12 @@ else:
                         e_term_col = "term" if "term" in e_df.columns else "Term"
                         e_y_col = "school_year" if "school_year" in e_df.columns else "School_Year"
                         
-                        existing_mask = (
-                            (e_df[e_t_col].apply(clean_key) == clean_key(user_info['name'])) &
-                            (e_df[e_s_col].apply(clean_key) == clean_key(std_eval)) &
-                            (e_df[e_term_col].astype(str).str.strip() == str(term).strip()) &
-                            (e_df[e_y_col].astype(str).str.strip() == str(eval_school_year).strip())
+                        existing_mask = e_df.apply(
+                            lambda r: is_teacher_match(r.get(e_t_col), user_key, user_info['name']) and
+                                      is_student_match(r.get(e_s_col), std_eval) and
+                                      clean_key(r.get(e_term_col)) == clean_key(term) and
+                                      clean_key(r.get(e_y_col)) == clean_key(eval_school_year),
+                            axis=1
                         )
                         
                         if existing_mask.any():
@@ -1645,7 +1718,7 @@ else:
             
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
             s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
-            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
+            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
             my_stds = my_stds_df[s_col].tolist() if not my_stds_df.empty and s_col in my_stds_df.columns else []
             
             if not my_stds: st.warning("⚠️ Lớp bạn chưa có học sinh.")
@@ -1688,12 +1761,13 @@ else:
                         c_p1_col = "period_1" if "period_1" in c_df.columns else "Period_1"
                         c_p2_col = "period_2" if "period_2" in c_df.columns else "Period_2"
                         
-                        existing_mask = (
-                            (c_df[c_t_col].apply(clean_key) == clean_key(user_info['name'])) &
-                            (c_df[c_s_col].apply(clean_key) == clean_key(std_comp)) &
-                            (c_df[c_type_col].astype(str).str.strip() == str(comp_type).strip()) &
-                            (c_df[c_p1_col].astype(str).str.strip() == str(period_1_label).strip()) &
-                            (c_df[c_p2_col].astype(str).str.strip() == str(period_2_label).strip())
+                        existing_mask = c_df.apply(
+                            lambda r: is_teacher_match(r.get(c_t_col), user_key, user_info['name']) and
+                                      is_student_match(r.get(c_s_col), std_comp) and
+                                      clean_key(r.get(c_type_col)) == clean_key(comp_type) and
+                                      clean_key(r.get(c_p1_col)) == clean_key(period_1_label) and
+                                      clean_key(r.get(c_p2_col)) == clean_key(period_2_label),
+                            axis=1
                         )
                         
                         if existing_mask.any():
@@ -1747,7 +1821,7 @@ else:
             st.subheader("📊 BÁO CÁO TỔNG HỢP EQ VÀ XU HƯỚNG CỦA LỚP")
             
             t_col = "teacher" if "teacher" in st.session_state.evaluations_df.columns else "Teacher"
-            df_my_eval = filter_df_by_clean_col(st.session_state.evaluations_df, t_col, user_info['name'])
+            df_my_eval = filter_teacher_records(st.session_state.evaluations_df, t_col, user_key, user_info['name'])
             df_my_eval_export = format_evaluations_export(df_my_eval)
             
             st.markdown("##### 1. Bảng Đánh Giá EQ 6 Tiêu Chí Của Lớp")
@@ -1760,7 +1834,7 @@ else:
             st.markdown("##### 2. Bảng Xu Hướng & So Sánh EQ Của Lớp")
             
             tc_col = "teacher" if "teacher" in st.session_state.comparisons_df.columns else "Teacher"
-            df_my_comp = filter_df_by_clean_col(st.session_state.comparisons_df, tc_col, user_info['name'])
+            df_my_comp = filter_teacher_records(st.session_state.comparisons_df, tc_col, user_key, user_info['name'])
             df_my_comp_export = format_comparisons_export(df_my_comp)
             
             st.dataframe(df_my_comp_export, use_container_width=True)
