@@ -27,38 +27,30 @@ def clean_key(val):
         s = s[1:]
     return s
 
+def filter_records_multilevel(df, campus="Tất cả cơ sở", class_name="Tất cả các lớp", teacher="Tất cả giáo viên", student="Tất cả học sinh"):
+    if df is None or df.empty:
+        return pd.DataFrame()
+    res = df.copy()
+    if campus and campus not in ["Tất cả cơ sở", "Tất cả", "ALL", ""]:
+        c_clean = clean_key(campus)
+        res = res[res['campus'].apply(lambda x: c_clean in clean_key(x) or clean_key(x) in c_clean)]
+    if class_name and class_name not in ["Tất cả các lớp", "Tất cả", "ALL", ""]:
+        cl_clean = clean_key(class_name)
+        res = res[res['class'].apply(lambda x: cl_clean in clean_key(x) or clean_key(x) in cl_clean)]
+    if teacher and teacher not in ["Tất cả giáo viên", "Tất cả", "ALL", ""]:
+        t_clean = clean_key(teacher)
+        res = res[res['teacher'].apply(lambda x: t_clean in clean_key(x) or clean_key(x) in t_clean)]
+    if student and student not in ["Tất cả học sinh", "Tất cả", "ALL", ""]:
+        s_clean = clean_key(student)
+        res = res[res['student'].apply(lambda x: s_clean in clean_key(x) or clean_key(x) in s_clean)]
+    return res
+
 def filter_df_by_clean_col(df, col_name, target_val):
     """ Lọc DataFrame không lo phân biệt hoa/thường, khoảng trắng, số 0 ở đầu hay đuôi .0 """
     if df is None or df.empty or col_name not in df.columns:
         return pd.DataFrame()
     target_clean = clean_key(target_val)
     mask = df[col_name].apply(clean_key) == target_clean
-    return df[mask]
-
-
-def filter_campus_records(df, target_campus, target_code=""):
-    """ Lọc dữ liệu theo Cơ sở linh hoạt (khớp cả Mã HD/HL/DBM/LVS/TTL lẫn Tên đầy đủ) """
-    if df is None or df.empty:
-        return pd.DataFrame()
-    c_col = "campus" if "campus" in df.columns else ("Campus" if "Campus" in df.columns else df.columns[0])
-    c_target = clean_key(target_campus)
-    code_target = clean_key(target_code)
-    short_code = code_target
-    if not short_code and 'CAMPUS_MAP' in globals():
-        for k, v in CAMPUS_MAP.items():
-            if clean_key(k) in c_target or clean_key(v) in c_target:
-                short_code = clean_key(k)
-                break
-    def match_row(val):
-        if val is None or pd.isna(val): return False
-        v_clean = clean_key(val)
-        if not v_clean: return False
-        if v_clean == c_target or v_clean in c_target or c_target in v_clean:
-            return True
-        if short_code and (v_clean == short_code or short_code in v_clean or v_clean in short_code):
-            return True
-        return False
-    mask = df[c_col].apply(match_row)
     return df[mask]
 
 def get_gas_sheet_rows(gas_data, sheet_name):
@@ -994,34 +986,89 @@ else:
 
         elif main_menu == "📊 2. Báo cáo EQ Toàn Hệ Thống":
             st.subheader("📊 BÁO CÁO TỔNG HỢP EQ TOÀN HỆ THỐNG")
-            df_eval_raw = st.session_state.evaluations_df
-            df_export = format_evaluations_export(df_eval_raw)
+            st.info("💡 **Admin:** Bạn có thể tự do lọc xem/xuất dữ liệu EQ theo từng Cơ sở, Khối lớp, Giáo viên hoặc Học sinh bên dưới:")
             
-            st.dataframe(df_export, use_container_width=True)
-            if not df_eval_raw.empty:
-                render_eq_charts(df_eval_raw, "(Toàn Trường)")
-            else:
-                st.info("ℹ️ Hệ thống chưa ghi nhận đánh giá EQ nào. Bạn vẫn có thể tải Khung Báo Cáo Mẫu (.csv) bên dưới.")
+            df_eval_raw = st.session_state.evaluations_df
+            
+            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+            with col_f1:
+                camp_opts = ["Tất cả cơ sở"] + list(CAMPUS_MAP.values())
+                sel_camp = st.selectbox("1. Chọn Cơ sở:", camp_opts, key="admin_sel_camp")
+            with col_f2:
+                class_opts = ["Tất cả các lớp"] + TFA_CLASSES
+                sel_class = st.selectbox("2. Chọn Khối Lớp:", class_opts, key="admin_sel_class")
+            with col_f3:
+                df_filtered_c = filter_records_multilevel(df_eval_raw, campus=sel_camp, class_name=sel_class)
+                t_list = sorted(list(set(df_filtered_c["teacher"].dropna().tolist()))) if not df_filtered_c.empty else []
+                t_opts = ["Tất cả giáo viên"] + [t for t in t_list if t]
+                sel_teacher = st.selectbox("3. Chọn Giáo viên:", t_opts, key="admin_sel_teacher")
+            with col_f4:
+                df_filtered_ct = filter_records_multilevel(df_filtered_c, teacher=sel_teacher)
+                s_list = sorted(list(set(df_filtered_ct["student"].dropna().tolist()))) if not df_filtered_ct.empty else []
+                s_opts = ["Tất cả học sinh"] + [s for s in s_list if s]
+                sel_student = st.selectbox("4. Chọn Học sinh:", s_opts, key="admin_sel_student")
                 
-            st.download_button(
-                "📥 Xuất File CSV/Excel Bảng Tổng Hợp EQ Chuẩn Mẫu",
-                df_export.to_csv(index=False).encode('utf-8-sig'),
-                f"Bao_Cao_Tong_Hop_EQ_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
-            )
+            df_eval_final = filter_records_multilevel(df_eval_raw, campus=sel_camp, class_name=sel_class, teacher=sel_teacher, student=sel_student)
+            df_export = format_evaluations_export(df_eval_final)
+            
+            st.markdown(f"##### 📋 Danh sách kết quả đánh giá ({len(df_export)} bản ghi)")
+            st.dataframe(df_export, use_container_width=True)
+            
+            if not df_eval_final.empty:
+                render_eq_charts(df_eval_final, f"({sel_camp} - {sel_class})")
+            else:
+                st.info("ℹ️ Không tìm thấy bản ghi đánh giá phù hợp với bộ lọc đã chọn.")
+                
+            col_dwn1, col_dwn2 = st.columns(2)
+            with col_dwn1:
+                st.download_button(
+                    "📥 Xuất CSV/Excel Bảng Đánh Giá EQ (Đã Lọc)",
+                    df_export.to_csv(index=False).encode('utf-8-sig'),
+                    f"Bao_Cao_EQ_Admin_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
+                )
+            with col_dwn2:
+                if sel_student and sel_student != "Tất cả học sinh" and not df_eval_final.empty:
+                    st.download_button(
+                        f"📄 Xuất Phiếu Đánh Giá Riêng Bé {sel_student}",
+                        df_export.to_csv(index=False).encode('utf-8-sig'),
+                        f"Phieu_EQ_Be_{clean_key(sel_student)}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
+                    )
 
         elif main_menu == "📈 3. Bảng So Sánh & Xu Hướng EQ":
             st.subheader("📈 BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ TOÀN TRƯỜNG")
+            st.info("💡 **Admin:** Lọc và lấy dữ liệu so sánh phong độ EQ của từng Cơ sở, Lớp, Giáo viên hoặc Học sinh:")
+            
             df_comp_raw = st.session_state.comparisons_df
-            df_comp_export = format_comparisons_export(df_comp_raw)
+            
+            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+            with col_f1:
+                camp_opts = ["Tất cả cơ sở"] + list(CAMPUS_MAP.values())
+                sel_camp_cmp = st.selectbox("1. Chọn Cơ sở:", camp_opts, key="admin_cmp_camp")
+            with col_f2:
+                class_opts = ["Tất cả các lớp"] + TFA_CLASSES
+                sel_class_cmp = st.selectbox("2. Chọn Khối Lớp:", class_opts, key="admin_cmp_class")
+            with col_f3:
+                df_fc = filter_records_multilevel(df_comp_raw, campus=sel_camp_cmp, class_name=sel_class_cmp)
+                t_list = sorted(list(set(df_fc["teacher"].dropna().tolist()))) if not df_fc.empty else []
+                t_opts = ["Tất cả giáo viên"] + [t for t in t_list if t]
+                sel_teacher_cmp = st.selectbox("3. Chọn Giáo viên:", t_opts, key="admin_cmp_teacher")
+            with col_f4:
+                df_fct = filter_records_multilevel(df_fc, teacher=sel_teacher_cmp)
+                s_list = sorted(list(set(df_fct["student"].dropna().tolist()))) if not df_fct.empty else []
+                s_opts = ["Tất cả học sinh"] + [s for s in s_list if s]
+                sel_student_cmp = st.selectbox("4. Chọn Học sinh:", s_opts, key="admin_cmp_student")
+
+            df_comp_final = filter_records_multilevel(df_comp_raw, campus=sel_camp_cmp, class_name=sel_class_cmp, teacher=sel_teacher_cmp, student=sel_student_cmp)
+            df_comp_export = format_comparisons_export(df_comp_final)
             
             st.dataframe(df_comp_export, use_container_width=True)
-            st.markdown("##### 📊 Bảng Thống Kê Chỉ Số Biến Thiên Toàn Trường")
-            st.table(calculate_class_stats(df_comp_raw))
+            st.markdown("##### 📊 Bảng Thống Kê Chỉ Số Biến Thiên EQ (Theo bộ lọc)")
+            st.table(calculate_class_stats(df_comp_final))
             
             st.download_button(
-                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Chuẩn Mẫu",
+                "📥 Xuất CSV/Excel Bảng Xu Hướng EQ (Đã Lọc)",
                 df_comp_export.to_csv(index=False).encode('utf-8-sig'),
-                f"Bang_Xu_Huong_EQ_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
+                f"Bang_Xu_Huong_EQ_Admin_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
 
         else:
@@ -1139,29 +1186,83 @@ else:
 
         elif main_menu == f"📊 2. Báo cáo EQ Cơ sở ({my_code})":
             st.subheader(f"📊 BÁO CÁO TỔNG HỢP EQ CƠ SỞ: {my_campus.upper()}")
-            c_col = "campus" if "campus" in st.session_state.evaluations_df.columns else "Campus"
-            df_c = filter_campus_records(st.session_state.evaluations_df, my_campus, my_code)
-            df_export = format_evaluations_export(df_c)
+            st.info("💡 **BGH:** Chọn Khối Lớp, Giáo viên hoặc Học sinh để chủ động xem và xuất báo cáo dữ liệu của cơ sở mình:")
             
+            df_c_raw = filter_records_multilevel(st.session_state.evaluations_df, campus=my_campus)
+            
+            col_b1, col_b2, col_b3 = st.columns(3)
+            with col_b1:
+                class_opts_bgh = ["Tất cả các lớp"] + TFA_CLASSES
+                sel_bgh_class = st.selectbox("1. Chọn Khối Lớp:", class_opts_bgh, key="bgh_sel_class")
+            with col_b2:
+                df_b_c = filter_records_multilevel(df_c_raw, class_name=sel_bgh_class)
+                t_bgh_list = sorted(list(set(df_b_c["teacher"].dropna().tolist()))) if not df_b_c.empty else []
+                t_bgh_opts = ["Tất cả giáo viên"] + [t for t in t_bgh_list if t]
+                sel_bgh_teacher = st.selectbox("2. Chọn Giáo viên:", t_bgh_opts, key="bgh_sel_teacher")
+            with col_b3:
+                df_b_ct = filter_records_multilevel(df_b_c, teacher=sel_bgh_teacher)
+                s_bgh_list = sorted(list(set(df_b_ct["student"].dropna().tolist()))) if not df_b_ct.empty else []
+                s_bgh_opts = ["Tất cả học sinh"] + [s for s in s_bgh_list if s]
+                sel_bgh_student = st.selectbox("3. Chọn Học sinh:", s_bgh_opts, key="bgh_sel_student")
+                
+            df_bgh_final = filter_records_multilevel(df_c_raw, class_name=sel_bgh_class, teacher=sel_bgh_teacher, student=sel_bgh_student)
+            df_export = format_evaluations_export(df_bgh_final)
+            
+            st.markdown(f"##### 📋 Danh sách kết quả đánh giá cơ sở ({len(df_export)} bản ghi)")
             st.dataframe(df_export, use_container_width=True)
-            st.download_button(
-                "📥 Xuất File CSV/Excel Báo Cáo EQ Cơ Sở",
-                df_export.to_csv(index=False).encode('utf-8-sig'),
-                f"Bao_Cao_EQ_{my_code}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
-            )
+            
+            if not df_bgh_final.empty:
+                render_eq_charts(df_bgh_final, f"({my_campus} - {sel_bgh_class})")
+                
+            col_bgh_d1, col_bgh_d2 = st.columns(2)
+            with col_bgh_d1:
+                st.download_button(
+                    "📥 Xuất File CSV/Excel Báo Cáo EQ Cơ Sở",
+                    df_export.to_csv(index=False).encode('utf-8-sig'),
+                    f"Bao_Cao_EQ_{my_code}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
+                )
+            with col_bgh_d2:
+                if sel_bgh_student and sel_bgh_student != "Tất cả học sinh" and not df_bgh_final.empty:
+                    st.download_button(
+                        f"📄 Xuất Phiếu Đánh Giá Riêng Bé {sel_bgh_student}",
+                        df_export.to_csv(index=False).encode('utf-8-sig'),
+                        f"Phieu_EQ_Be_{clean_key(sel_bgh_student)}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
+                    )
 
         else:
             st.subheader(f"📈 BẢNG SO SÁNH XU HƯỚNG EQ CƠ SỞ: {my_campus.upper()}")
-            c_col = "campus" if "campus" in st.session_state.comparisons_df.columns else "Campus"
-            df_comp_c = filter_campus_records(st.session_state.comparisons_df, my_campus, my_code)
-            df_comp_export = format_comparisons_export(df_comp_c)
+            st.info("💡 **BGH:** Lọc và lấy dữ liệu so sánh xu hướng EQ của cơ sở:")
+            
+            df_comp_c_raw = filter_records_multilevel(st.session_state.comparisons_df, campus=my_campus)
+            
+            col_b1, col_b2, col_b3 = st.columns(3)
+            with col_b1:
+                class_opts_cmp = ["Tất cả các lớp"] + TFA_CLASSES
+                sel_bgh_cmp_class = st.selectbox("1. Chọn Khối Lớp:", class_opts_cmp, key="bgh_cmp_class")
+            with col_b2:
+                df_bc = filter_records_multilevel(df_comp_c_raw, class_name=sel_bgh_cmp_class)
+                t_list = sorted(list(set(df_bc["teacher"].dropna().tolist()))) if not df_bc.empty else []
+                t_opts = ["Tất cả giáo viên"] + [t for t in t_list if t]
+                sel_bgh_cmp_teacher = st.selectbox("2. Chọn Giáo viên:", t_opts, key="bgh_cmp_teacher")
+            with col_b3:
+                df_bct = filter_records_multilevel(df_bc, teacher=sel_bgh_cmp_teacher)
+                s_list = sorted(list(set(df_bct["student"].dropna().tolist()))) if not df_bct.empty else []
+                s_opts = ["Tất cả học sinh"] + [s for s in s_list if s]
+                sel_bgh_cmp_student = st.selectbox("3. Chọn Học sinh:", s_opts, key="bgh_cmp_student")
+
+            df_bgh_comp_final = filter_records_multilevel(df_comp_c_raw, class_name=sel_bgh_cmp_class, teacher=sel_bgh_cmp_teacher, student=sel_bgh_cmp_student)
+            df_comp_export = format_comparisons_export(df_bgh_comp_final)
             
             st.dataframe(df_comp_export, use_container_width=True)
+            st.markdown("##### 📊 Bảng Thống Kê Chỉ Số Biến Thiên EQ Cơ Sở")
+            st.table(calculate_class_stats(df_bgh_comp_final))
+            
             st.download_button(
                 "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Cơ Sở",
                 df_comp_export.to_csv(index=False).encode('utf-8-sig'),
                 f"Bang_Xu_Huong_EQ_{my_code}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
+
 
     # =========================================================================
     # VAI TRÒ 3: GIÁO VIÊN TỪNG LỚP
