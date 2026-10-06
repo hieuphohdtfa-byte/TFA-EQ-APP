@@ -35,6 +35,32 @@ def filter_df_by_clean_col(df, col_name, target_val):
     mask = df[col_name].apply(clean_key) == target_clean
     return df[mask]
 
+
+def filter_campus_records(df, target_campus, target_code=""):
+    """ Lọc dữ liệu theo Cơ sở linh hoạt (khớp cả Mã HD/HL/DBM/LVS/TTL lẫn Tên đầy đủ) """
+    if df is None or df.empty:
+        return pd.DataFrame()
+    c_col = "campus" if "campus" in df.columns else ("Campus" if "Campus" in df.columns else df.columns[0])
+    c_target = clean_key(target_campus)
+    code_target = clean_key(target_code)
+    short_code = code_target
+    if not short_code and 'CAMPUS_MAP' in globals():
+        for k, v in CAMPUS_MAP.items():
+            if clean_key(k) in c_target or clean_key(v) in c_target:
+                short_code = clean_key(k)
+                break
+    def match_row(val):
+        if val is None or pd.isna(val): return False
+        v_clean = clean_key(val)
+        if not v_clean: return False
+        if v_clean == c_target or v_clean in c_target or c_target in v_clean:
+            return True
+        if short_code and (v_clean == short_code or short_code in v_clean or v_clean in short_code):
+            return True
+        return False
+    mask = df[c_col].apply(match_row)
+    return df[mask]
+
 def get_gas_sheet_rows(gas_data, sheet_name):
     """ Tìm và lấy danh sách dòng dữ liệu từ gas_data """
     if not isinstance(gas_data, dict):
@@ -968,88 +994,32 @@ else:
 
         elif main_menu == "📊 2. Báo cáo EQ Toàn Hệ Thống":
             st.subheader("📊 BÁO CÁO TỔNG HỢP EQ TOÀN HỆ THỐNG")
-            st.markdown("##### 🔍 Bộ Lọc Tự Chọn & Lấy Dữ Liệu Báo Cáo (Admin Tổng)")
-            
-            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-            with col_f1:
-                adm_campus = st.selectbox("🏢 Chọn Cơ sở:", ["Tất cả cơ sở"] + list(CAMPUS_MAP.values()), key="adm_filt_campus")
-            with col_f2:
-                adm_class = st.selectbox("🏫 Chọn Khối Lớp:", ["Tất cả khối lớp"] + TFA_CLASSES, key="adm_filt_class")
-            with col_f3:
-                adm_year = st.selectbox("📅 Chọn Năm học:", ["Tất cả năm học"] + SCHOOL_YEAR_OPTIONS, index=2, key="adm_filt_year")
-            with col_f4:
-                term_options = ["Tất cả các tháng"] + [f"Tháng {m}" for m in range(1, 13)]
-                adm_term = st.selectbox("🗓️ Chọn Tháng / Kỳ:", term_options, key="adm_filt_term")
-                
-            col_btn1, col_btn2 = st.columns([2, 1])
-            with col_btn1:
-                st.info("💡 Bạn có thể tùy chọn Cơ sở, Khối Lớp, Năm học và Tháng cần xem để lọc dữ liệu trực tiếp!")
-            with col_btn2:
-                if st.button("🔄 Nạp Tải Dữ Liệu Mới Từ Google Sheet", key="btn_reload_admin", use_container_width=True):
-                    init_app_data(force_reload=True)
-                    st.rerun()
-
-            df_eval_raw = st.session_state.evaluations_df.copy()
-            if not df_eval_raw.empty:
-                if adm_campus != "Tất cả cơ sở":
-                    df_eval_raw = filter_campus_records(df_eval_raw, adm_campus)
-                if adm_class != "Tất cả khối lớp":
-                    c_col = "class" if "class" in df_eval_raw.columns else "Class"
-                    df_eval_raw = filter_df_by_clean_col(df_eval_raw, c_col, adm_class)
-                if adm_year != "Tất cả năm học":
-                    y_col = "school_year" if "school_year" in df_eval_raw.columns else "School_Year"
-                    df_eval_raw = filter_df_by_clean_col(df_eval_raw, y_col, adm_year)
-                if adm_term != "Tất cả các tháng":
-                    t_col = "term" if "term" in df_eval_raw.columns else "Term"
-                    df_eval_raw = df_eval_raw[df_eval_raw[t_col].astype(str).str.contains(adm_term, case=False, na=False)]
-
+            df_eval_raw = st.session_state.evaluations_df
             df_export = format_evaluations_export(df_eval_raw)
-            st.markdown(f"**Tổng số bản ghi tìm thấy:** `{len(df_export)}` học sinh")
-            st.dataframe(df_export, use_container_width=True)
             
+            st.dataframe(df_export, use_container_width=True)
             if not df_eval_raw.empty:
-                render_eq_charts(df_eval_raw, f"({adm_campus} - {adm_class})")
+                render_eq_charts(df_eval_raw, "(Toàn Trường)")
             else:
-                st.info("ℹ️ Không tìm thấy dữ liệu đánh giá EQ phù hợp với bộ lọc đã chọn.")
+                st.info("ℹ️ Hệ thống chưa ghi nhận đánh giá EQ nào. Bạn vẫn có thể tải Khung Báo Cáo Mẫu (.csv) bên dưới.")
                 
             st.download_button(
-                "📥 Xuất File CSV/Excel Bảng Tổng Hợp EQ Theo Bộ Lọc",
+                "📥 Xuất File CSV/Excel Bảng Tổng Hợp EQ Chuẩn Mẫu",
                 df_export.to_csv(index=False).encode('utf-8-sig'),
                 f"Bao_Cao_Tong_Hop_EQ_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
 
         elif main_menu == "📈 3. Bảng So Sánh & Xu Hướng EQ":
             st.subheader("📈 BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ TOÀN TRƯỜNG")
-            st.markdown("##### 🔍 Bộ Lọc Tự Chọn Dữ Liệu So Sánh (Admin Tổng)")
-            
-            col_cf1, col_cf2, col_cf3 = st.columns(3)
-            with col_cf1:
-                adm_comp_campus = st.selectbox("🏢 Chọn Cơ sở:", ["Tất cả cơ sở"] + list(CAMPUS_MAP.values()), key="adm_comp_campus")
-            with col_cf2:
-                adm_comp_class = st.selectbox("🏫 Chọn Khối Lớp:", ["Tất cả khối lớp"] + TFA_CLASSES, key="adm_comp_class")
-            with col_cf3:
-                adm_comp_year = st.selectbox("📅 Chọn Năm học:", ["Tất cả năm học"] + SCHOOL_YEAR_OPTIONS, index=2, key="adm_comp_year")
-                
-            df_comp_raw = st.session_state.comparisons_df.copy()
-            if not df_comp_raw.empty:
-                if adm_comp_campus != "Tất cả cơ sở":
-                    df_comp_raw = filter_campus_records(df_comp_raw, adm_comp_campus)
-                if adm_comp_class != "Tất cả khối lớp":
-                    c_col = "class" if "class" in df_comp_raw.columns else "Class"
-                    df_comp_raw = filter_df_by_clean_col(df_comp_raw, c_col, adm_comp_class)
-                if adm_comp_year != "Tất cả năm học":
-                    y_col = "school_year" if "school_year" in df_comp_raw.columns else "School_Year"
-                    df_comp_raw = filter_df_by_clean_col(df_comp_raw, y_col, adm_comp_year)
-
+            df_comp_raw = st.session_state.comparisons_df
             df_comp_export = format_comparisons_export(df_comp_raw)
-            st.markdown(f"**Tổng số bản ghi so sánh:** `{len(df_comp_export)}` học sinh")
-            st.dataframe(df_comp_export, use_container_width=True)
             
+            st.dataframe(df_comp_export, use_container_width=True)
             st.markdown("##### 📊 Bảng Thống Kê Chỉ Số Biến Thiên Toàn Trường")
             st.table(calculate_class_stats(df_comp_raw))
             
             st.download_button(
-                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Theo Bộ Lọc",
+                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Chuẩn Mẫu",
                 df_comp_export.to_csv(index=False).encode('utf-8-sig'),
                 f"Bang_Xu_Huong_EQ_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
@@ -1169,80 +1139,26 @@ else:
 
         elif main_menu == f"📊 2. Báo cáo EQ Cơ sở ({my_code})":
             st.subheader(f"📊 BÁO CÁO TỔNG HỢP EQ CƠ SỞ: {my_campus.upper()}")
-            st.markdown(f"##### 🔍 Bộ Lọc Tự Chọn & Lấy Dữ Liệu Báo Cáo (BGH {my_code})")
-            
-            col_b1, col_b2, col_b3 = st.columns(3)
-            with col_b1:
-                bgh_class = st.selectbox("🏫 Chọn Khối Lớp:", ["Tất cả khối lớp"] + TFA_CLASSES, key="bgh_filt_class")
-            with col_b2:
-                bgh_year = st.selectbox("📅 Chọn Năm học:", ["Tất cả năm học"] + SCHOOL_YEAR_OPTIONS, index=2, key="bgh_filt_year")
-            with col_b3:
-                term_options = ["Tất cả các tháng"] + [f"Tháng {m}" for m in range(1, 13)]
-                bgh_term = st.selectbox("🗓️ Chọn Tháng / Kỳ:", term_options, key="bgh_filt_term")
-                
-            col_bbtn1, col_bbtn2 = st.columns([2, 1])
-            with col_bbtn1:
-                st.info(f"💡 BGH Cơ sở `{my_code}` có thể chủ động chọn Lớp, Năm học và Tháng để lọc và xuất dữ liệu báo cáo bất cứ lúc nào!")
-            with col_bbtn2:
-                if st.button("🔄 Nạp Dữ Liệu Mới Từ Sheet", key="btn_reload_bgh", use_container_width=True):
-                    init_app_data(force_reload=True)
-                    st.rerun()
-
+            c_col = "campus" if "campus" in st.session_state.evaluations_df.columns else "Campus"
             df_c = filter_campus_records(st.session_state.evaluations_df, my_campus, my_code)
-            if not df_c.empty:
-                if bgh_class != "Tất cả khối lớp":
-                    c_col = "class" if "class" in df_c.columns else "Class"
-                    df_c = filter_df_by_clean_col(df_c, c_col, bgh_class)
-                if bgh_year != "Tất cả năm học":
-                    y_col = "school_year" if "school_year" in df_c.columns else "School_Year"
-                    df_c = filter_df_by_clean_col(df_c, y_col, bgh_year)
-                if bgh_term != "Tất cả các tháng":
-                    t_col = "term" if "term" in df_c.columns else "Term"
-                    df_c = df_c[df_c[t_col].astype(str).str.contains(bgh_term, case=False, na=False)]
-
             df_export = format_evaluations_export(df_c)
-            st.markdown(f"**Tổng số bản ghi tìm thấy tại cơ sở `{my_code}`:** `{len(df_export)}` học sinh")
-            st.dataframe(df_export, use_container_width=True)
             
-            if not df_c.empty:
-                render_eq_charts(df_c, f"({my_campus})")
-            else:
-                st.info(f"ℹ️ Cơ sở {my_campus} chưa có dữ liệu báo cáo EQ phù hợp với bộ lọc đã chọn.")
-
+            st.dataframe(df_export, use_container_width=True)
             st.download_button(
-                "📥 Xuất File CSV/Excel Báo Cáo EQ Cơ Sở Theo Bộ Lọc",
+                "📥 Xuất File CSV/Excel Báo Cáo EQ Cơ Sở",
                 df_export.to_csv(index=False).encode('utf-8-sig'),
                 f"Bao_Cao_EQ_{my_code}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
 
         else:
             st.subheader(f"📈 BẢNG SO SÁNH XU HƯỚNG EQ CƠ SỞ: {my_campus.upper()}")
-            st.markdown(f"##### 🔍 Bộ Lọc Dữ Liệu So Sánh Cơ Sở (BGH {my_code})")
-            
-            col_bc1, col_bc2 = st.columns(2)
-            with col_bc1:
-                bgh_comp_class = st.selectbox("🏫 Chọn Khối Lớp:", ["Tất cả khối lớp"] + TFA_CLASSES, key="bgh_comp_class")
-            with col_bc2:
-                bgh_comp_year = st.selectbox("📅 Chọn Năm học:", ["Tất cả năm học"] + SCHOOL_YEAR_OPTIONS, index=2, key="bgh_comp_year")
-                
+            c_col = "campus" if "campus" in st.session_state.comparisons_df.columns else "Campus"
             df_comp_c = filter_campus_records(st.session_state.comparisons_df, my_campus, my_code)
-            if not df_comp_c.empty:
-                if bgh_comp_class != "Tất cả khối lớp":
-                    c_col = "class" if "class" in df_comp_c.columns else "Class"
-                    df_comp_c = filter_df_by_clean_col(df_comp_c, c_col, bgh_comp_class)
-                if bgh_comp_year != "Tất cả năm học":
-                    y_col = "school_year" if "school_year" in df_comp_c.columns else "School_Year"
-                    df_comp_c = filter_df_by_clean_col(df_comp_c, y_col, bgh_comp_year)
-
             df_comp_export = format_comparisons_export(df_comp_c)
-            st.markdown(f"**Tổng số bản ghi so sánh tại cơ sở `{my_code}`:** `{len(df_comp_export)}` học sinh")
-            st.dataframe(df_comp_export, use_container_width=True)
             
-            st.markdown("##### 📊 Bảng Thống Kê Biến Thiên EQ Cơ Sở")
-            st.table(calculate_class_stats(df_comp_c))
-
+            st.dataframe(df_comp_export, use_container_width=True)
             st.download_button(
-                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Cơ Sở Theo Bộ Lọc",
+                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Cơ Sở",
                 df_comp_export.to_csv(index=False).encode('utf-8-sig'),
                 f"Bang_Xu_Huong_EQ_{my_code}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
