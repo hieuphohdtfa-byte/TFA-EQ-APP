@@ -614,15 +614,15 @@ def init_app_data(force_reload=False):
             st.session_state.comparisons_df = normalize_comparisons_df(get_gas_sheet_rows(gas_data, "Comparisons"))
             st.session_state.gas_loaded = True
 
-if 'logged_user' not in st.session_state:
-    st.session_state['logged_user'] = None
-
 init_app_data()
 
-if st.session_state.get("logged_user") is None and hasattr(st, "query_params"):
+if 'logged_user' not in st.session_state:
+    st.session_state.logged_user = None
+
+if st.session_state.logged_user is None and hasattr(st, "query_params"):
     saved_user = st.query_params.get("user", None)
     if saved_user:
-        st.session_state["logged_user"] = clean_key(saved_user)
+        st.session_state.logged_user = clean_key(saved_user)
 
 def get_users_dict():
     u_dict = {}
@@ -834,7 +834,7 @@ with head_col2:
 # -----------------------------------------------------------------------------
 users_dict = get_users_dict()
 
-if st.session_state.get("logged_user") is None:
+if st.session_state.logged_user is None:
     col_left, col_right = st.columns([1.1, 1.9], gap="large")
     
     with col_left:
@@ -859,7 +859,7 @@ if st.session_state.get("logged_user") is None:
                     if u_info.get("status", "active") == "inactive":
                         st.error("❌ Tài khoản này đã bị NGƯNG HIỆU LỰC hoạt động!")
                     else:
-                        st.session_state["logged_user"] = u_key
+                        st.session_state.logged_user = u_key
                         if hasattr(st, "query_params"):
                             st.query_params["user"] = u_key
                         st.success(f"🎉 Đăng nhập thành công! Chào mừng {u_info['name']}")
@@ -900,10 +900,10 @@ if st.session_state.get("logged_user") is None:
 # 8. KHÔNG GIAN LÀM VIỆC TRONG APP (SAU KHI ĐĂNG NHẬP)
 # -----------------------------------------------------------------------------
 else:
-    user_info = users_dict.get(st.session_state.get("logged_user"), {
+    user_info = users_dict.get(st.session_state.logged_user, {
         "name": "Người dùng", "role": "teacher", "campus": "TFA", "class_name": "Lớp"
     })
-    user_key = st.session_state.get("logged_user")
+    user_key = st.session_state.logged_user
     role = user_info.get("role", "teacher")
     
     if os.path.exists(LOGO_FILE): st.sidebar.image(LOGO_FILE, width=220)
@@ -917,7 +917,7 @@ else:
         st.sidebar.info(f"🏢 **Cơ sở:** {user_info['campus']}\n\n👩‍🏫 **Lớp:** {user_info.get('class_name', 'Chưa tạo lớp')}")
     
     if st.sidebar.button("🚪 Đăng Xuất"):
-        st.session_state["logged_user"] = None
+        st.session_state.logged_user = None
         if hasattr(st, "query_params") and "user" in st.query_params:
             del st.query_params["user"]
         st.rerun()
