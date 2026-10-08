@@ -3,7 +3,6 @@ import pandas as pd
 import requests
 import os
 import json
-import re
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
@@ -16,110 +15,37 @@ GAS_URL = "https://script.google.com/macros/s/AKfycbwYyCVKVPrIw80fR13LysE3yZz2Or
 # -----------------------------------------------------------------------------
 # 🛠️ HÀM HỖ TRỢ CHUẨN HÓA MÃ CHUỖI & TÌM KIẾM AN TOÀN TUYỆT ĐỐI
 # -----------------------------------------------------------------------------
-
-def remove_accents(input_str):
-    if not input_str: return ''
-    s = str(input_str)
-    s = re.sub(r'[àáảãạăằắẳẵặâầấẩẫậ]', 'a', s)
-    s = re.sub(r'[ÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬ]', 'A', s)
-    s = re.sub(r'[đ]', 'd', s)
-    s = re.sub(r'[Đ]', 'D', s)
-    s = re.sub(r'[èéẻẽẹêềếểễệ]', 'e', s)
-    s = re.sub(r'[ÈÉẺẼẸÊỀẾỂỄỆ]', 'E', s)
-    s = re.sub(r'[ìíỉĩị]', 'i', s)
-    s = re.sub(r'[ÌÍỈĨỊ]', 'I', s)
-    s = re.sub(r'[òóỏõọôồốổỗộơờớởỡợ]', 'o', s)
-    s = re.sub(r'[ÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢ]', 'O', s)
-    s = re.sub(r'[ùúủũụưừứửữự]', 'u', s)
-    s = re.sub(r'[ÙÚỦŨỤƯỪỨỬỮỰ]', 'U', s)
-    s = re.sub(r'[ỳýỷỹỵ]', 'y', s)
-    s = re.sub(r'[ỲÝỶỸỴ]', 'Y', s)
-    return s
-
 def clean_key(val):
-    if val is None or pd.isna(val): return ''
-    s = remove_accents(str(val)).strip().lower().replace('.0', '')
-    if s in ['nan', 'none']: return ''
-    s = re.sub(r'[^a-z0-9]', '', s)
-    if s.startswith('0') and len(s) > 1: s = s[1:]
+    """ Xóa khoảng trắng, chữ thường, bỏ .0 và chuẩn hóa số 0 ở đầu SĐT/Mã """
+    if val is None or pd.isna(val):
+        return ""
+    s = str(val).strip().lower()
+    s = s.replace(".0", "")
+    if s in ["nan", "none"]:
+        return ""
+    if s.startswith("0") and len(s) > 1:
+        s = s[1:]
     return s
-
-
-def get_row_value(r_dict, primary_keys, default=''):
-    if not isinstance(r_dict, dict): return default
-    norm_dict = {}
-    for k, v in r_dict.items():
-        if v is None: continue
-        val_str = str(v).strip()
-        if val_str.lower() in ['nan', 'none']: val_str = ''
-        k_clean = remove_accents(str(k)).lower().strip().replace(' ', '').replace('_', '').replace('/', '').replace('(', '').replace(')', '').replace('-', '')
-        norm_dict[k_clean] = val_str
-        
-    for pk in primary_keys:
-        pk_clean = remove_accents(pk).lower().strip().replace(' ', '').replace('_', '').replace('/', '').replace('(', '').replace(')', '').replace('-', '')
-        if pk_clean in norm_dict and norm_dict[pk_clean]:
-            return norm_dict[pk_clean]
-            
-    return default
-
-def is_campus_match(val_in_row, target_campus, target_code=''):
-    if not val_in_row or str(val_in_row).strip() == '': return True
-    v_clean = clean_key(val_in_row)
-    c_clean = clean_key(target_campus)
-    code_clean = clean_key(target_code)
-    
-    if not v_clean or c_clean in ['tatcacoso', 'tatca'] or code_clean in ['all', 'tatca']:
-        return True
-        
-    if v_clean == c_clean or v_clean == code_clean:
-        return True
-        
-    campus_keywords = {
-        'hd': 'hado',
-        'hl': 'himlam',
-        'dbm': 'duongbachmai',
-        'lvs': 'levansy',
-        'ttl': 'tranthily'
-    }
-    
-    target_kw = campus_keywords.get(code_clean, '')
-    if target_kw and target_kw in v_clean:
-        return True
-        
-    if code_clean and (code_clean in v_clean or v_clean in code_clean):
-        return True
-        
-    if len(v_clean) > 3 and len(c_clean) > 3 and (v_clean in c_clean or c_clean in v_clean):
-        return True
-        
-    return False
-
-def filter_records_multilevel(df, campus='Tất cả', class_name='Tất cả', teacher='Tất cả', student='Tất cả', my_code=''):
-    if df is None or df.empty:
-        return pd.DataFrame()
-        
-    res = df.copy()
-    
-    if campus and campus not in ['Tất cả', 'Tất cả cơ sở']:
-        res = res[res.apply(lambda r: is_campus_match(r.get('campus', ''), campus, my_code), axis=1)]
-        
-    if class_name and class_name not in ['Tất cả', 'Tất cả các lớp']:
-        res = res[res['class'].apply(lambda v: clean_key(v) == clean_key(class_name))]
-        
-    if teacher and teacher not in ['Tất cả', 'Tất cả giáo viên']:
-        res = res[res['teacher'].apply(lambda v: clean_key(v) == clean_key(teacher))]
-        
-    if student and student not in ['Tất cả', 'Tất cả học sinh']:
-        res = res[res['student'].apply(lambda v: clean_key(v) == clean_key(student))]
-        
-    return res
 
 def filter_df_by_clean_col(df, col_name, target_val):
     """ Lọc DataFrame không lo phân biệt hoa/thường, khoảng trắng, số 0 ở đầu hay đuôi .0 """
     if df is None or df.empty or col_name not in df.columns:
         return pd.DataFrame()
     target_clean = clean_key(target_val)
-    mask = df[col_name].apply(clean_key) == target_clean
+    
+    def matches(val):
+        val_clean = clean_key(val)
+        if not val_clean or not target_clean:
+            return False
+        if val_clean == target_clean:
+            return True
+        # Tự động khớp tên cơ sở ngắn/dài (VD: 'Cơ sở TFA Hà Đô' vs 'Cơ sở TFA Hà Đô (Phường Cát Lái...)')
+        if str(col_name).strip().lower() in ['campus', 'coso', 'campus_code', 'campuscode']:
+            if val_clean in target_clean or target_clean in val_clean:
+                return True
+        return False
+
+    mask = df[col_name].apply(matches)
     return df[mask]
 
 def get_gas_sheet_rows(gas_data, sheet_name):
@@ -518,119 +444,154 @@ def normalize_users_df(raw_rows, default_users_df):
     norm_rows = []
     for r in raw_rows:
         if not isinstance(r, dict): continue
-        std_row = {}
-        std_row['username'] = get_row_value(r, ['username', 'user', 'tk', 'tendangnhap', 'taikhoan'])
-        std_row['password'] = get_row_value(r, ['password', 'pass', 'matkhau'])
-        std_row['name'] = get_row_value(r, ['name', 'hoten', 'tengiaovien', 'ten'])
-        std_row['role'] = get_row_value(r, ['role', 'vaitro'])
-        std_row['campus_code'] = get_row_value(r, ['campuscode', 'macoso', 'code'])
-        std_row['campus'] = get_row_value(r, ['campus', 'coso'])
-        std_row['class_name'] = get_row_value(r, ['classname', 'class', 'lop'])
-        std_row['status'] = get_row_value(r, ['status', 'trangthai'], default='active')
-        if std_row['username']:
-            norm_rows.append(std_row)
-            
-    df = pd.DataFrame(norm_rows) if norm_rows else pd.DataFrame()
-    for c in ['username', 'password', 'name', 'role', 'campus_code', 'campus', 'class_name', 'status']:
-        if c not in df.columns: df[c] = ''
+        row_clean = {}
+        for k, v in r.items():
+            k_clean = str(k).strip().lower().replace(" ", "").replace("_", "")
+            val_clean = str(v).strip() if v is not None else ""
+            if k_clean in ["username", "user", "tk", "tendangnhap", "taikhoan"]: row_clean["username"] = val_clean
+            elif k_clean in ["password", "pass", "matkhau"]: row_clean["password"] = val_clean
+            elif k_clean in ["name", "hoten", "tengiaovien", "ten"]: row_clean["name"] = val_clean
+            elif k_clean in ["role", "vaitro"]: row_clean["role"] = val_clean
+            elif k_clean in ["campuscode", "macoso", "code"]: row_clean["campus_code"] = val_clean
+            elif k_clean in ["campus", "coso"]: row_clean["campus"] = val_clean
+            elif k_clean in ["classname", "class", "lop"]: row_clean["class_name"] = val_clean
+            elif k_clean in ["status", "trangthai"]: row_clean["status"] = val_clean
+            else: row_clean[str(k).strip().lower()] = val_clean
+        norm_rows.append(row_clean)
+    df = pd.DataFrame(norm_rows)
+    for c in ["username", "password", "name", "role", "campus_code", "campus", "class_name", "status"]:
+        if c not in df.columns: df[c] = ""
     all_df = pd.concat([default_users_df, df], ignore_index=True)
-    all_df['_u_clean'] = all_df['username'].apply(clean_key)
-    all_df = all_df[all_df['_u_clean'] != ''].drop_duplicates(subset=['_u_clean'], keep='last').drop(columns=['_u_clean'])
+    all_df["_u_clean"] = all_df["username"].apply(clean_key)
+    all_df = all_df[all_df["_u_clean"] != ""].drop_duplicates(subset=["_u_clean"], keep="last").drop(columns=["_u_clean"])
     return all_df
 
 def normalize_students_df(raw_rows):
     if not raw_rows:
-        return pd.DataFrame(columns=['teacher_user', 'student_name', 'student_note'])
+        return pd.DataFrame(columns=["teacher_user", "student_name", "student_note"])
     norm_rows = []
     for r in raw_rows:
         if not isinstance(r, dict): continue
-        std_row = {}
-        std_row['teacher_user'] = clean_key(get_row_value(r, ['teacheruser', 'teacher', 'tuser', 'user', 'giaovien', 'tkgiaovien']))
-        std_row['student_name'] = get_row_value(r, ['studentname', 'student', 'sname', 'tenhocsinh', 'hocsinh', 'tenbe', 'be'])
-        std_row['student_note'] = get_row_value(r, ['studentnote', 'note', 'ghichu', 'luuy'])
-        if std_row['student_name']:
-            norm_rows.append(std_row)
-    df = pd.DataFrame(norm_rows) if norm_rows else pd.DataFrame(columns=['teacher_user', 'student_name', 'student_note'])
-    for c in ['teacher_user', 'student_name', 'student_note']:
-        if c not in df.columns: df[c] = ''
+        row_clean = {}
+        for k, v in r.items():
+            k_clean = str(k).strip().lower().replace(" ", "").replace("_", "")
+            val_clean = str(v).strip() if v is not None else ""
+            if k_clean in ["teacheruser", "teacher", "teacherusername", "tuser", "user", "giaovien", "tkgiaovien"]:
+                row_clean["teacher_user"] = clean_key(val_clean)
+            elif k_clean in ["studentname", "student", "sname", "tenhocsinh", "hocsinh", "tenbe", "be"]:
+                row_clean["student_name"] = val_clean
+            elif k_clean in ["studentnote", "note", "ghichu", "luuy"]:
+                row_clean["student_note"] = val_clean
+            else:
+                row_clean[str(k).strip().lower()] = val_clean
+        norm_rows.append(row_clean)
+    df = pd.DataFrame(norm_rows)
+    for c in ["teacher_user", "student_name", "student_note"]:
+        if c not in df.columns: df[c] = ""
     return df
+
+def remove_accents(input_str):
+    import re
+    if not input_str or pd.isna(input_str):
+        return ""
+    s = str(input_str).lower().strip()
+    s = re.sub(r'[àáảãạăằắẳẵặâầấẩẫậ]', 'a', s)
+    s = re.sub(r'[èéẻẽẹêềếểễệ]', 'e', s)
+    s = re.sub(r'[ìíỉĩị]', 'i', s)
+    s = re.sub(r'[òóỏõọôồốổỗộơờớởỡợ]', 'o', s)
+    s = re.sub(r'[ùúủũụưừứửữự]', 'u', s)
+    s = re.sub(r'[ỳýỷỹỵ]', 'y', s)
+    s = re.sub(r'[đ]', 'd', s)
+    s = re.sub(r'[^a-z0-9]', '', s)
+    return s
+
+def get_row_val(row_dict, possible_keys, default=''):
+    if not isinstance(row_dict, dict):
+        return default
+    clean_map = {remove_accents(k): str(v).strip() if v is not None else '' for k, v in row_dict.items()}
+    for key in possible_keys:
+        ckey = remove_accents(key)
+        if ckey in clean_map and clean_map[ckey] != '':
+            return clean_map[ckey]
+    return default
 
 def normalize_evaluations_df(raw_rows):
     if not raw_rows:
-        return pd.DataFrame(columns=['teacher', 'campus', 'class', 'student', 'school_year', 'term', 'eval_date', 'tc1', 'tc2', 'tc3', 'tc4', 'tc5', 'tc6', 'p_eq', 'group_clean', 'context', 'conclusion', 'plan'])
+        return pd.DataFrame(columns=["teacher", "campus", "class", "student", "school_year", "term", "eval_date", "tc1", "tc2", "tc3", "tc4", "tc5", "tc6", "p_eq", "group_clean", "context", "conclusion", "plan"])
     norm_rows = []
     for r in raw_rows:
         if not isinstance(r, dict): continue
         std_row = {}
-        std_row['teacher'] = get_row_value(r, ['teacher', 'giaovien', 'tengiaovien'])
-        std_row['campus'] = get_row_value(r, ['campus', 'coso'])
-        std_row['class'] = get_row_value(r, ['class', 'lop', 'khoilop'])
-        std_row['student'] = get_row_value(r, ['student', 'tenhocsinh', 'hocsinh', 'tenbe'])
-        std_row['school_year'] = get_row_value(r, ['schoolyear', 'namhoc'])
-        std_row['term'] = get_row_value(r, ['term', 'kythang', 'ky', 'thang'])
-        std_row['eval_date'] = get_row_value(r, ['evaldate', 'ngaydanhgia', 'ngay'])
-        std_row['tc1'] = get_row_value(r, ['tc1'], default='0')
-        std_row['tc2'] = get_row_value(r, ['tc2'], default='0')
-        std_row['tc3'] = get_row_value(r, ['tc3'], default='0')
-        std_row['tc4'] = get_row_value(r, ['tc4'], default='0')
-        std_row['tc5'] = get_row_value(r, ['tc5'], default='0')
-        std_row['tc6'] = get_row_value(r, ['tc6'], default='0')
-        std_row['p_eq'] = get_row_value(r, ['peq', 'diemtbpeq', 'diempeq'], default='0')
-        std_row['group_clean'] = get_row_value(r, ['groupclean', 'nhomtrangthai', 'nhom'])
-        std_row['context'] = get_row_value(r, ['context', 'boicanhminhchungdienhinhhanhvicuthe', 'boicanh', 'minhchung'])
-        std_row['conclusion'] = get_row_value(r, ['conclusion', 'ketluanxuhuong', 'ketluan'])
-        std_row['plan'] = get_row_value(r, ['plan', 'kehoachtacdongtieptheo', 'kehoach'])
-        if std_row['student'] or std_row['teacher']:
-            norm_rows.append(std_row)
-    return pd.DataFrame(norm_rows) if norm_rows else pd.DataFrame(columns=['teacher', 'campus', 'class', 'student', 'school_year', 'term', 'eval_date', 'tc1', 'tc2', 'tc3', 'tc4', 'tc5', 'tc6', 'p_eq', 'group_clean', 'context', 'conclusion', 'plan'])
+        std_row["teacher"] = get_row_val(r, ["teacher", "giaovien", "tengiaovien"])
+        std_row["campus"] = get_row_val(r, ["campus", "coso"])
+        std_row["class"] = get_row_val(r, ["class", "lop", "khoilop"])
+        std_row["student"] = get_row_val(r, ["student", "hocsinh", "tenhocsinh", "tenbe"])
+        std_row["school_year"] = get_row_val(r, ["schoolyear", "namhoc"])
+        std_row["term"] = get_row_val(r, ["term", "ky", "kythang"])
+        std_row["eval_date"] = get_row_val(r, ["evaldate", "ngay", "ngaydanhgia"])
+        std_row["tc1"] = get_row_val(r, ["tc1"], "0")
+        std_row["tc2"] = get_row_val(r, ["tc2"], "0")
+        std_row["tc3"] = get_row_val(r, ["tc3"], "0")
+        std_row["tc4"] = get_row_val(r, ["tc4"], "0")
+        std_row["tc5"] = get_row_val(r, ["tc5"], "0")
+        std_row["tc6"] = get_row_val(r, ["tc6"], "0")
+        std_row["p_eq"] = get_row_val(r, ["peq", "peqscore", "diemtbpeq"], "0")
+        std_row["group_clean"] = get_row_val(r, ["groupclean", "nhom", "nhomtrangthai"])
+        std_row["context"] = get_row_val(r, ["context", "boicanh", "boicanhminhchungdienhinhhanhvicuthe"])
+        std_row["conclusion"] = get_row_val(r, ["conclusion", "ketluan", "ketluanxuhuong"])
+        std_row["plan"] = get_row_val(r, ["plan", "kehoach", "kehoachtacdongtieptheo"])
+        norm_rows.append(std_row)
+    return pd.DataFrame(norm_rows)
 
 def normalize_dailylogs_df(raw_rows):
     if not raw_rows:
-        return pd.DataFrame(columns=['teacher', 'campus', 'class', 'student', 'date', 'routine', 'emotions', 'note', 'intervention', 'summary', 'details_json'])
+        return pd.DataFrame(columns=["teacher", "campus", "class", "student", "date", "routine", "emotions", "note", "intervention", "summary", "details_json"])
     norm_rows = []
     for r in raw_rows:
         if not isinstance(r, dict): continue
-        std_row = {}
-        std_row['teacher'] = get_row_value(r, ['teacher', 'giaovien', 'tengiaovien'])
-        std_row['campus'] = get_row_value(r, ['campus', 'coso'])
-        std_row['class'] = get_row_value(r, ['class', 'lop', 'khoilop'])
-        std_row['student'] = get_row_value(r, ['student', 'tenhocsinh', 'hocsinh', 'tenbe'])
-        std_row['date'] = get_row_value(r, ['date', 'ngay', 'ngaynhap'])
-        std_row['routine'] = get_row_value(r, ['routine', 'hoatdong'])
-        std_row['emotions'] = get_row_value(r, ['emotions', 'camxuc'])
-        std_row['note'] = get_row_value(r, ['note', 'ghichu', 'boicanh'])
-        std_row['intervention'] = get_row_value(r, ['intervention', 'canthiep'])
-        std_row['summary'] = get_row_value(r, ['summary', 'nhanxet', 'nhanxetchung'])
-        std_row['details_json'] = get_row_value(r, ['detailsjson', 'details', 'json'])
-        if std_row['student'] or std_row['teacher']:
-            norm_rows.append(std_row)
-    return pd.DataFrame(norm_rows) if norm_rows else pd.DataFrame(columns=['teacher', 'campus', 'class', 'student', 'date', 'routine', 'emotions', 'note', 'intervention', 'summary', 'details_json'])
+        row_clean = {str(k).strip().lower().replace(" ", "").replace("_", ""): str(v).strip() if v is not None else "" for k, v in r.items()}
+        std_row = {
+            "teacher": row_clean.get("teacher", row_clean.get("giaovien", "")),
+            "campus": row_clean.get("campus", row_clean.get("coso", "")),
+            "class": row_clean.get("class", row_clean.get("lop", "")),
+            "student": row_clean.get("student", row_clean.get("hocsinh", "")),
+            "date": row_clean.get("date", row_clean.get("ngay", "")),
+            "routine": row_clean.get("routine", row_clean.get("hoatdong", "")),
+            "emotions": row_clean.get("emotions", row_clean.get("camxuc", "")),
+            "note": row_clean.get("note", row_clean.get("ghichu", "")),
+            "intervention": row_clean.get("intervention", row_clean.get("canthiep", "")),
+            "summary": row_clean.get("summary", row_clean.get("nhanxet", "")),
+            "details_json": row_clean.get("detailsjson", row_clean.get("details", ""))
+        }
+        norm_rows.append(std_row)
+    return pd.DataFrame(norm_rows)
 
 def normalize_comparisons_df(raw_rows):
     if not raw_rows:
-        return pd.DataFrame(columns=['teacher', 'campus', 'class', 'student', 'school_year', 'comp_type', 'period_1', 'period_2', 'score_term1', 'score_term2', 'delta', 'trend', 'conclusion', 'plan', 'comp_date'])
+        return pd.DataFrame(columns=["teacher", "campus", "class", "student", "school_year", "comp_type", "period_1", "period_2", "score_term1", "score_term2", "delta", "trend", "conclusion", "plan", "comp_date"])
     norm_rows = []
     for r in raw_rows:
         if not isinstance(r, dict): continue
-        std_row = {}
-        std_row['teacher'] = get_row_value(r, ['teacher', 'giaovien', 'tengiaovien'])
-        std_row['campus'] = get_row_value(r, ['campus', 'coso'])
-        std_row['class'] = get_row_value(r, ['class', 'lop', 'khoilop'])
-        std_row['student'] = get_row_value(r, ['student', 'tenhocsinh', 'hocsinh', 'tenbe'])
-        std_row['school_year'] = get_row_value(r, ['schoolyear', 'namhoc'])
-        std_row['comp_type'] = get_row_value(r, ['comptype', 'loaisosanh'])
-        std_row['period_1'] = get_row_value(r, ['period1', 'dot1'])
-        std_row['period_2'] = get_row_value(r, ['period2', 'dot2'])
-        std_row['score_term1'] = get_row_value(r, ['scoreterm1', 'diemdot1'], default='0')
-        std_row['score_term2'] = get_row_value(r, ['scoreterm2', 'diemdot2'], default='0')
-        std_row['delta'] = get_row_value(r, ['delta', 'bienthien'], default='0')
-        std_row['trend'] = get_row_value(r, ['trend', 'xuhuong'])
-        std_row['conclusion'] = get_row_value(r, ['conclusion', 'ketluanxuhuong', 'ketluan'])
-        std_row['plan'] = get_row_value(r, ['plan', 'kehoachtacdongtieptheo', 'kehoach'])
-        std_row['comp_date'] = get_row_value(r, ['compdate', 'ngay', 'ngaysosanh'])
-        if std_row['student'] or std_row['teacher']:
-            norm_rows.append(std_row)
-    return pd.DataFrame(norm_rows) if norm_rows else pd.DataFrame(columns=['teacher', 'campus', 'class', 'student', 'school_year', 'comp_type', 'period_1', 'period_2', 'score_term1', 'score_term2', 'delta', 'trend', "conclusion", "plan", "comp_date"])
+        row_clean = {str(k).strip().lower().replace(" ", "").replace("_", ""): str(v).strip() if v is not None else "" for k, v in r.items()}
+        std_row = {
+            "teacher": row_clean.get("teacher", row_clean.get("giaovien", "")),
+            "campus": row_clean.get("campus", row_clean.get("coso", "")),
+            "class": row_clean.get("class", row_clean.get("lop", "")),
+            "student": row_clean.get("student", row_clean.get("hocsinh", "")),
+            "school_year": row_clean.get("schoolyear", row_clean.get("namhoc", "")),
+            "comp_type": row_clean.get("comptype", row_clean.get("loaisosanh", "")),
+            "period_1": row_clean.get("period1", row_clean.get("dot1", "")),
+            "period_2": row_clean.get("period2", row_clean.get("dot2", "")),
+            "score_term1": row_clean.get("scoreterm1", row_clean.get("diemdot1", "0")),
+            "score_term2": row_clean.get("scoreterm2", row_clean.get("diemdot2", "0")),
+            "delta": row_clean.get("delta", row_clean.get("bienthien", "0")),
+            "trend": row_clean.get("trend", row_clean.get("xuhuong", "")),
+            "conclusion": row_clean.get("conclusion", row_clean.get("ketluan", "")),
+            "plan": row_clean.get("plan", row_clean.get("kehoach", "")),
+            "comp_date": row_clean.get("compdate", row_clean.get("ngay", ""))
+        }
+        norm_rows.append(std_row)
+    return pd.DataFrame(norm_rows)
 
 def load_all_from_gas():
     try:
@@ -1044,86 +1005,39 @@ else:
 
         elif main_menu == "📊 2. Báo cáo EQ Toàn Hệ Thống":
             st.subheader("📊 BÁO CÁO TỔNG HỢP EQ TOÀN HỆ THỐNG")
-            st.info("💡 **Admin:** Bạn có thể tự do lọc dữ liệu EQ theo từng Cơ sở, Khối Lớp, Giáo viên hoặc Học sinh bên dưới:")
-            
             df_eval_raw = st.session_state.evaluations_df
-            users_df = st.session_state.users_df
+            df_export = format_evaluations_export(df_eval_raw)
             
-            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-            with col_f1:
-                camp_opts = ["Tất cả cơ sở"] + list(CAMPUS_MAP.values())
-                sel_camp = st.selectbox("1. Chọn Cơ sở:", camp_opts, key="sa_sel_camp")
-            with col_f2:
-                class_opts = ["Tất cả các lớp"] + TFA_CLASSES
-                sel_class = st.selectbox("2. Chọn Khối Lớp:", class_opts, key="sa_sel_class")
-            with col_f3:
-                df_c = filter_records_multilevel(df_eval_raw, campus=sel_camp, class_name=sel_class)
-                t_from_eval = df_c["teacher"].dropna().unique().tolist() if not df_c.empty else []
-                t_from_users = users_df["name"].dropna().unique().tolist() if "name" in users_df.columns else []
-                all_t = sorted(list(set([t for t in t_from_eval + t_from_users if t and str(t).strip() != ""])))
-                t_opts = ["Tất cả giáo viên"] + all_t
-                sel_teacher = st.selectbox("3. Chọn Giáo viên:", t_opts, key="sa_sel_teacher")
-            with col_f4:
-                df_ct = filter_records_multilevel(df_c, teacher=sel_teacher)
-                s_from_eval = df_ct["student"].dropna().unique().tolist() if not df_ct.empty else []
-                s_from_stds = st.session_state.students_df["student_name"].dropna().unique().tolist() if "student_name" in st.session_state.students_df.columns else []
-                all_s = sorted(list(set([s for s in s_from_eval + s_from_stds if s and str(s).strip() != ""])))
-                s_opts = ["Tất cả học sinh"] + all_s
-                sel_student = st.selectbox("4. Chọn Học sinh:", s_opts, key="sa_sel_student")
-                
-            df_filtered = filter_records_multilevel(df_eval_raw, campus=sel_camp, class_name=sel_class, teacher=sel_teacher, student=sel_student)
-            df_export = format_evaluations_export(df_filtered)
-            
-            st.markdown(f"##### 📋 Danh Sách Đánh Giá EQ ({len(df_filtered)} kết quả)")
             st.dataframe(df_export, use_container_width=True)
-            if not df_filtered.empty:
-                render_eq_charts(df_filtered, "(Đã lọc)")
+            if not df_eval_raw.empty:
+                render_eq_charts(df_eval_raw, "(Toàn Trường)")
             else:
-                st.warning("⚠️ Không có dữ liệu đánh giá EQ nào phù hợp với bộ lọc đã chọn.")
+                st.info("ℹ️ Hệ thống chưa ghi nhận đánh giá EQ nào. Bạn vẫn có thể tải Khung Báo Cáo Mẫu (.csv) bên dưới.")
                 
             st.download_button(
-                "📥 Xuất File CSV/Excel Bảng Tổng Hợp EQ (Theo bộ lọc)",
+                "📥 Xuất File CSV/Excel Bảng Tổng Hợp EQ Chuẩn Mẫu",
                 df_export.to_csv(index=False).encode('utf-8-sig'),
                 f"Bao_Cao_Tong_Hop_EQ_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
 
         elif main_menu == "📈 3. Bảng So Sánh & Xu Hướng EQ":
             st.subheader("📈 BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ TOÀN TRƯỜNG")
-            st.info("💡 **Admin:** Lọc bảng so sánh biến thiên EQ chủ động:")
-            
             df_comp_raw = st.session_state.comparisons_df
+            df_comp_export = format_comparisons_export(df_comp_raw)
             
-            col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-            with col_f1:
-                camp_opts = ["Tất cả cơ sở"] + list(CAMPUS_MAP.values())
-                sel_camp_cmp = st.selectbox("1. Chọn Cơ sở:", camp_opts, key="sa_cmp_camp")
-            with col_f2:
-                class_opts = ["Tất cả các lớp"] + TFA_CLASSES
-                sel_class_cmp = st.selectbox("2. Chọn Khối Lớp:", class_opts, key="sa_cmp_class")
-            with col_f3:
-                df_c = filter_records_multilevel(df_comp_raw, campus=sel_camp_cmp, class_name=sel_class_cmp)
-                t_list = sorted(list(set(df_c["teacher"].dropna().tolist()))) if not df_c.empty else []
-                t_opts = ["Tất cả giáo viên"] + [t for t in t_list if t]
-                sel_teacher_cmp = st.selectbox("3. Chọn Giáo viên:", t_opts, key="sa_cmp_teacher")
-            with col_f4:
-                df_ct = filter_records_multilevel(df_c, teacher=sel_teacher_cmp)
-                s_list = sorted(list(set(df_ct["student"].dropna().tolist()))) if not df_ct.empty else []
-                s_opts = ["Tất cả học sinh"] + [s for s in s_list if s]
-                sel_student_cmp = st.selectbox("4. Chọn Học sinh:", s_opts, key="sa_cmp_student")
-                
-            df_comp_filtered = filter_records_multilevel(df_comp_raw, campus=sel_camp_cmp, class_name=sel_class_cmp, teacher=sel_teacher_cmp, student=sel_student_cmp)
-            df_comp_export = format_comparisons_export(df_comp_filtered)
-            
-            st.markdown(f"##### 📋 Bảng So Sánh Xu Hướng ({len(df_comp_filtered)} kết quả)")
             st.dataframe(df_comp_export, use_container_width=True)
-            st.markdown("##### 📊 Bảng Thống Kê Chỉ Số Biến Thiên Toàn Lớp/Trường")
-            st.table(calculate_class_stats(df_comp_filtered))
+            st.markdown("##### 📊 Bảng Thống Kê Chỉ Số Biến Thiên Toàn Trường")
+            st.table(calculate_class_stats(df_comp_raw))
             
             st.download_button(
-                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ (Theo bộ lọc)",
+                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Chuẩn Mẫu",
                 df_comp_export.to_csv(index=False).encode('utf-8-sig'),
                 f"Bang_Xu_Huong_EQ_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
+
+        else:
+            st.subheader("📝 NHẬT KÝ CẢM XÚC TOÀN HỆ THỐNG")
+            st.dataframe(st.session_state.daily_logs_df, use_container_width=True)
 
     # =========================================================================
     # VAI TRÒ 2: BGH TỪNG CƠ SỞ (CAMPUS ADMIN)
@@ -1236,83 +1150,26 @@ else:
 
         elif main_menu == f"📊 2. Báo cáo EQ Cơ sở ({my_code})":
             st.subheader(f"📊 BÁO CÁO TỔNG HỢP EQ CƠ SỞ: {my_campus.upper()}")
-            st.info("💡 **BGH:** Bạn có thể tự do lọc rút báo cáo EQ theo Khối Lớp, Giáo viên và Học sinh trong cơ sở mình bất cứ lúc nào:")
+            c_col = "campus" if "campus" in st.session_state.evaluations_df.columns else "Campus"
+            df_c = filter_df_by_clean_col(st.session_state.evaluations_df, c_col, my_campus)
+            df_export = format_evaluations_export(df_c)
             
-            df_eval_raw = st.session_state.evaluations_df
-            users_df = st.session_state.users_df
-            
-            col_b1, col_b2, col_b3 = st.columns(3)
-            with col_b1:
-                class_opts = ["Tất cả các lớp"] + TFA_CLASSES
-                sel_class = st.selectbox("1. Chọn Khối Lớp:", class_opts, key="ca_sel_class")
-            with col_b2:
-                df_c = filter_records_multilevel(df_eval_raw, campus=my_campus, class_name=sel_class, my_code=my_code)
-                t_from_eval = df_c["teacher"].dropna().unique().tolist() if not df_c.empty else []
-                col_campus = "campus_code" if "campus_code" in users_df.columns else "Campus_Code"
-                col_role = "role" if "role" in users_df.columns else "Role"
-                gv_users = users_df[
-                    (users_df[col_role].apply(clean_key) == 'teacher') & 
-                    (users_df[col_campus].apply(clean_key) == clean_key(my_code))
-                ] if not users_df.empty else pd.DataFrame()
-                t_from_users = gv_users["name"].dropna().unique().tolist() if not gv_users.empty else []
-                all_t = sorted(list(set([t for t in t_from_eval + t_from_users if t and str(t).strip() != ""])))
-                t_opts = ["Tất cả giáo viên"] + all_t
-                sel_teacher = st.selectbox("2. Chọn Giáo viên:", t_opts, key="ca_sel_teacher")
-            with col_b3:
-                df_ct = filter_records_multilevel(df_c, teacher=sel_teacher)
-                s_from_eval = df_ct["student"].dropna().unique().tolist() if not df_ct.empty else []
-                s_from_stds = st.session_state.students_df["student_name"].dropna().unique().tolist() if "student_name" in st.session_state.students_df.columns else []
-                all_s = sorted(list(set([s for s in s_from_eval + s_from_stds if s and str(s).strip() != ""])))
-                s_opts = ["Tất cả học sinh"] + all_s
-                sel_student = st.selectbox("3. Chọn Học sinh:", s_opts, key="ca_sel_student")
-                
-            df_filtered = filter_records_multilevel(df_eval_raw, campus=my_campus, class_name=sel_class, teacher=sel_teacher, student=sel_student, my_code=my_code)
-            df_export = format_evaluations_export(df_filtered)
-            
-            st.markdown(f"##### 📋 Báo Cáo Đánh Giá EQ Cơ Sở ({len(df_filtered)} kết quả)")
             st.dataframe(df_export, use_container_width=True)
-            if not df_filtered.empty:
-                render_eq_charts(df_filtered, f"({my_code})")
-            else:
-                st.warning("⚠️ Cơ sở/Lớp chưa có dữ liệu đánh giá EQ phù hợp với bộ lọc.")
-                
             st.download_button(
-                "📥 Xuất File CSV/Excel Báo Cáo EQ Cơ Sở (Theo bộ lọc)",
+                "📥 Xuất File CSV/Excel Báo Cáo EQ Cơ Sở",
                 df_export.to_csv(index=False).encode('utf-8-sig'),
                 f"Bao_Cao_EQ_{my_code}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
 
         else:
             st.subheader(f"📈 BẢNG SO SÁNH XU HƯỚNG EQ CƠ SỞ: {my_campus.upper()}")
-            st.info("💡 **BGH:** Lọc bảng so sánh xu hướng EQ của cơ sở:")
+            c_col = "campus" if "campus" in st.session_state.comparisons_df.columns else "Campus"
+            df_comp_c = filter_df_by_clean_col(st.session_state.comparisons_df, c_col, my_campus)
+            df_comp_export = format_comparisons_export(df_comp_c)
             
-            df_comp_raw = st.session_state.comparisons_df
-            
-            col_b1, col_b2, col_b3 = st.columns(3)
-            with col_b1:
-                class_opts = ["Tất cả các lớp"] + TFA_CLASSES
-                sel_class_cmp = st.selectbox("1. Chọn Khối Lớp:", class_opts, key="ca_cmp_class")
-            with col_b2:
-                df_c = filter_records_multilevel(df_comp_raw, campus=my_campus, class_name=sel_class_cmp, my_code=my_code)
-                t_list = sorted(list(set(df_c["teacher"].dropna().tolist()))) if not df_c.empty else []
-                t_opts = ["Tất cả giáo viên"] + [t for t in t_list if t]
-                sel_teacher_cmp = st.selectbox("2. Chọn Giáo viên:", t_opts, key="ca_cmp_teacher")
-            with col_b3:
-                df_ct = filter_records_multilevel(df_c, teacher=sel_teacher_cmp)
-                s_list = sorted(list(set(df_ct["student"].dropna().tolist()))) if not df_ct.empty else []
-                s_opts = ["Tất cả học sinh"] + [s for s in s_list if s]
-                sel_student_cmp = st.selectbox("3. Chọn Học sinh:", s_opts, key="ca_cmp_student")
-                
-            df_comp_filtered = filter_records_multilevel(df_comp_raw, campus=my_campus, class_name=sel_class_cmp, teacher=sel_teacher_cmp, student=sel_student_cmp, my_code=my_code)
-            df_comp_export = format_comparisons_export(df_comp_filtered)
-            
-            st.markdown(f"##### 📋 Bảng So Sánh Xu Hướng EQ ({len(df_comp_filtered)} kết quả)")
             st.dataframe(df_comp_export, use_container_width=True)
-            st.markdown("##### 📊 Thống Kê Biến Thiên EQ Cơ Sở")
-            st.table(calculate_class_stats(df_comp_filtered))
-            
             st.download_button(
-                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Cơ Sở (Theo bộ lọc)",
+                "📥 Xuất File CSV/Excel Bảng Xu Hướng EQ Cơ Sở",
                 df_comp_export.to_csv(index=False).encode('utf-8-sig'),
                 f"Bang_Xu_Huong_EQ_{my_code}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
             )
