@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
-GAS_URL = "https://script.google.com/macros/s/AKfycbwYyCVKVPrIw80fR13LysE3yZz2OrZRhPlfeymEJ6j-g_GkEfWtnauvNzfKJnEQYWNeqA/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbyLmKWVgiMnLk94OL1bjAVROT0jl-JhplqFmm1jpvIJMqZnUfzJUirRQMfyJsjgX34cPQ/exec"
 
 # -----------------------------------------------------------------------------
 # 🛠️ HÀM HỖ TRỢ CHUẨN HÓA MÃ CHUỖI & TÌM KIẾM AN TOÀN TUYỆT ĐỐI
@@ -26,13 +26,6 @@ def clean_key(val):
     if s.startswith("0") and len(s) > 1:
         s = s[1:]
     return s
-
-def filter_teacher_records(df, teacher_col, user_key, user_name):
-    """ Lọc dữ liệu của Giáo viên theo SĐT / Tên / Username """
-    if df is None or df.empty or teacher_col not in df.columns:
-        return pd.DataFrame()
-    mask = df[teacher_col].apply(lambda v: is_teacher_match(v, user_key, user_name))
-    return df[mask]
 
 def filter_df_by_clean_col(df, col_name, target_val):
     """ Lọc DataFrame không lo phân biệt hoa/thường, khoảng trắng, số 0 ở đầu hay đuôi .0 """
@@ -1545,7 +1538,7 @@ else:
             st.markdown("##### 📋 Danh Sách Học Sinh Trong Lớp")
             
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
-            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
+            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
             
             if not my_stds_df.empty:
                 for idx in my_stds_df.index:
@@ -1592,7 +1585,7 @@ else:
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
             s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
             
-            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
+            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
             my_stds = my_stds_df[s_col].tolist() if not my_stds_df.empty and s_col in my_stds_df.columns else []
             
             if not my_stds:
@@ -1631,11 +1624,10 @@ else:
                     d_s_col = "student" if "student" in d_df.columns else "Student"
                     d_d_col = "date" if "date" in d_df.columns else "Date"
                     
-                    match_log_mask = d_df.apply(
-                        lambda r: is_teacher_match(r.get(d_t_col), user_key, user_info['name']) and
-                                  is_student_match(r.get(d_s_col), std_select) and
-                                  clean_date_str(r.get(d_d_col)) == target_date_clean,
-                        axis=1
+                    match_log_mask = (
+                        (d_df[d_t_col].apply(clean_key) == clean_key(user_info['name'])) &
+                        (d_df[d_s_col].apply(clean_key) == clean_key(std_select)) &
+                        (d_df[d_d_col].astype(str).str.strip() == selected_date_str)
                     )
                     
                     if match_log_mask.any():
@@ -1789,11 +1781,10 @@ else:
                         d_s_col = "student" if "student" in d_df.columns else "Student"
                         d_d_col = "date" if "date" in d_df.columns else "Date"
                         
-                        existing_mask = d_df.apply(
-                            lambda r: is_teacher_match(r.get(d_t_col), user_key, user_info['name']) and
-                                      is_student_match(r.get(d_s_col), std_select) and
-                                      clean_date_str(r.get(d_d_col)) == target_date_clean,
-                            axis=1
+                        existing_mask = (
+                            (d_df[d_t_col].apply(clean_key) == clean_key(user_info['name'])) &
+                            (d_df[d_s_col].apply(clean_key) == clean_key(std_select)) &
+                            (d_df[d_d_col].astype(str).str.strip() == selected_date_str)
                         )
                         
                         if existing_mask.any():
@@ -1827,7 +1818,7 @@ else:
             
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
             s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
-            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
+            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
             my_stds = my_stds_df[s_col].tolist() if not my_stds_df.empty and s_col in my_stds_df.columns else []
             
             if not my_stds: st.warning("⚠️ Lớp bạn chưa có học sinh.")
@@ -1920,12 +1911,11 @@ else:
                         e_term_col = "term" if "term" in e_df.columns else "Term"
                         e_y_col = "school_year" if "school_year" in e_df.columns else "School_Year"
                         
-                        existing_mask = e_df.apply(
-                            lambda r: is_teacher_match(r.get(e_t_col), user_key, user_info['name']) and
-                                      is_student_match(r.get(e_s_col), std_eval) and
-                                      clean_key(r.get(e_term_col)) == clean_key(term) and
-                                      clean_key(r.get(e_y_col)) == clean_key(eval_school_year),
-                            axis=1
+                        existing_mask = (
+                            (e_df[e_t_col].apply(clean_key) == clean_key(user_info['name'])) &
+                            (e_df[e_s_col].apply(clean_key) == clean_key(std_eval)) &
+                            (e_df[e_term_col].astype(str).str.strip() == str(term).strip()) &
+                            (e_df[e_y_col].astype(str).str.strip() == str(eval_school_year).strip())
                         )
                         
                         if existing_mask.any():
@@ -1983,7 +1973,7 @@ else:
             
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
             s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
-            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
+            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
             my_stds = my_stds_df[s_col].tolist() if not my_stds_df.empty and s_col in my_stds_df.columns else []
             
             if not my_stds: st.warning("⚠️ Lớp bạn chưa có học sinh.")
@@ -2085,7 +2075,7 @@ else:
             st.subheader("📊 BÁO CÁO TỔNG HỢP EQ VÀ XU HƯỚNG CỦA LỚP")
             
             t_col = "teacher" if "teacher" in st.session_state.evaluations_df.columns else "Teacher"
-            df_my_eval = filter_teacher_records(st.session_state.evaluations_df, t_col, user_key, user_info['name'])
+            df_my_eval = filter_df_by_clean_col(st.session_state.evaluations_df, t_col, user_info['name'])
             df_my_eval_export = format_evaluations_export(df_my_eval)
             
             st.markdown("##### 1. Bảng Đánh Giá EQ 6 Tiêu Chí Của Lớp")
@@ -2098,7 +2088,7 @@ else:
             st.markdown("##### 2. Bảng Xu Hướng & So Sánh EQ Của Lớp")
             
             tc_col = "teacher" if "teacher" in st.session_state.comparisons_df.columns else "Teacher"
-            df_my_comp = filter_teacher_records(st.session_state.comparisons_df, tc_col, user_key, user_info['name'])
+            df_my_comp = filter_df_by_clean_col(st.session_state.comparisons_df, tc_col, user_info['name'])
             df_my_comp_export = format_comparisons_export(df_my_comp)
             
             st.dataframe(df_my_comp_export, use_container_width=True)
