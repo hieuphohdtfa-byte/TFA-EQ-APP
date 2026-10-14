@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
-GAS_URL = "https://script.google.com/macros/s/AKfycbyLmKWVgiMnLk94OL1bjAVROT0jl-JhplqFmm1jpvIJMqZnUfzJUirRQMfyJsjgX34cPQ/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbwYyCVKVPrIw80fR13LysE3yZz2OrZRhPlfeymEJ6j-g_GkEfWtnauvNzfKJnEQYWNeqA/exec"
 
 # -----------------------------------------------------------------------------
 # 🛠️ HÀM HỖ TRỢ CHUẨN HÓA MÃ CHUỖI & TÌM KIẾM AN TOÀN TUYỆT ĐỐI
@@ -306,20 +306,17 @@ CRITERIA_DATA = {
 # -----------------------------------------------------------------------------
 # 🤖 THUẬT TOÁN MA TRẬN TỰ ĐỘNG "NHẶT" MINH CHỨNG VÀO 6 TIÊU CHÍ EQ
 # -----------------------------------------------------------------------------
-def auto_map_daily_to_criteria(student_name, teacher_name, daily_df, user_info=None):
+def auto_map_daily_to_criteria(student_name, teacher_name, daily_df):
     if daily_df is None or daily_df.empty:
         return None
     
     t_col = "teacher" if "teacher" in daily_df.columns else "Teacher"
     s_col = "student" if "student" in daily_df.columns else "Student"
     
-    std_logs = daily_df[daily_df[s_col].apply(lambda v: is_student_match(v, student_name))]
-    if user_info:
-        raw_u = str(user_info.get("raw_username", user_info.get("username", ""))).strip()
-        raw_n = str(user_info.get("name", "")).strip()
-        std_logs = std_logs[std_logs[t_col].apply(lambda v: is_teacher_match(v, raw_u, raw_n))]
-    elif teacher_name:
-        std_logs = std_logs[std_logs[t_col].apply(lambda v: is_teacher_match(v, teacher_name, teacher_name))]
+    std_logs = daily_df[
+        (daily_df[s_col].apply(clean_key) == clean_key(student_name)) & 
+        (daily_df[t_col].apply(clean_key) == clean_key(teacher_name))
+    ]
     if std_logs.empty:
         return None
         
@@ -1821,11 +1818,10 @@ else:
             
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
             s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
-            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_info)
+            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
             my_stds = my_stds_df[s_col].tolist() if not my_stds_df.empty and s_col in my_stds_df.columns else []
             
-            if not my_stds:
-                st.warning("⚠️ Lớp bạn chưa có học sinh. Vui lòng thêm học sinh ở Mục 1!")
+            if not my_stds: st.warning("⚠️ Lớp bạn chưa có học sinh.")
             else:
                 col_e1, col_e2, col_e3, col_e4 = st.columns([1.5, 1.2, 1.2, 1.2])
                 with col_e1: std_eval = st.selectbox("Chọn học sinh:", my_stds)
@@ -1845,117 +1841,66 @@ else:
                 
                 st.info(f"📘 Bộ tiêu chí: **{curr_age_group}** | 📅 Ngày đánh giá: **{eval_date_str}** | 🏫 Năm học: **{eval_school_year}**")
                 
-                # Check for existing evaluation record on Google Sheet / evaluations_df
-                e_df = st.session_state.evaluations_df
-                existing_eval = None
-                if not e_df.empty:
-                    e_t_col = "teacher" if "teacher" in e_df.columns else "Teacher"
-                    e_s_col = "student" if "student" in e_df.columns else "Student"
-                    e_term_col = "term" if "term" in e_df.columns else "Term"
-                    e_y_col = "school_year" if "school_year" in e_df.columns else "School_Year"
-                    
-                    matched_evals = filter_teacher_records(e_df, e_t_col, user_info)
-                    if not matched_evals.empty:
-                        match_mask = (
-                            (matched_evals[e_s_col].apply(is_student_match, target_student_name=std_eval)) &
-                            (matched_evals[e_term_col].astype(str).str.strip() == str(term).strip()) &
-                            (matched_evals[e_y_col].astype(str).str.strip() == str(eval_school_year).strip())
-                        )
-                        if match_mask.any():
-                            existing_eval = matched_evals[match_mask].iloc[-1]
-
-                # Key prefix for widget state
-                eval_key = f"{clean_key(std_eval)}_{clean_dict_key(term)}_{clean_dict_key(eval_school_year)}"
-                
-                # Initialize state if switching student or month
-                if st.session_state.get("last_eval_key") != eval_key:
-                    st.session_state["last_eval_key"] = eval_key
-                    if existing_eval is not None:
-                        st.session_state[f"radio_tc1_{eval_key}"] = int(pd.to_numeric(existing_eval.get("tc1", 3), errors='coerce') or 3)
-                        st.session_state[f"radio_tc2_{eval_key}"] = int(pd.to_numeric(existing_eval.get("tc2", 3), errors='coerce') or 3)
-                        st.session_state[f"radio_tc3_{eval_key}"] = int(pd.to_numeric(existing_eval.get("tc3", 3), errors='coerce') or 3)
-                        st.session_state[f"radio_tc4_{eval_key}"] = int(pd.to_numeric(existing_eval.get("tc4", 3), errors='coerce') or 3)
-                        st.session_state[f"radio_tc5_{eval_key}"] = int(pd.to_numeric(existing_eval.get("tc5", 3), errors='coerce') or 3)
-                        st.session_state[f"radio_tc6_{eval_key}"] = int(pd.to_numeric(existing_eval.get("tc6", 3), errors='coerce') or 3)
-                        st.session_state[f"ctx_{eval_key}"] = str(existing_eval.get("context", ""))
-                        st.session_state[f"cnc_{eval_key}"] = str(existing_eval.get("conclusion", ""))
-                        st.session_state[f"pln_{eval_key}"] = str(existing_eval.get("plan", ""))
-                    else:
-                        st.session_state[f"radio_tc1_{eval_key}"] = 3
-                        st.session_state[f"radio_tc2_{eval_key}"] = 3
-                        st.session_state[f"radio_tc3_{eval_key}"] = 3
-                        st.session_state[f"radio_tc4_{eval_key}"] = 3
-                        st.session_state[f"radio_tc5_{eval_key}"] = 3
-                        st.session_state[f"radio_tc6_{eval_key}"] = 3
-                        st.session_state[f"ctx_{eval_key}"] = f"Dựa trên theo dõi {eval_month}..."
-                        st.session_state[f"cnc_{eval_key}"] = f"Bé {std_eval} thuộc nhóm DUY TRÌ..."
-                        st.session_state[f"pln_{eval_key}"] = "Tiếp tục đồng hành và hỗ trợ bé..."
-
-                if existing_eval is not None:
-                    st.success(f"ℹ️ **Đã tìm thấy bài đánh giá {term} của bé {std_eval}.** Bạn có thể xem lại hoặc chỉnh sửa thông tin bên dưới rồi bấm Lưu!")
-
+                eval_key = f"{clean_key(std_eval)}_{clean_dict_key(term)}"
                 if st.button("⚡ TỰ ĐỘNG TỔNG HỢP EQ THÁNG (1-CLICK TỪ NHẬT KÝ HẰNG NGÀY)"):
-                    mapped_res = auto_map_daily_to_criteria(std_eval, user_info['name'], st.session_state.daily_logs_df, user_info=user_info)
+                    mapped_res = auto_map_daily_to_criteria(std_eval, user_info['name'], st.session_state.daily_logs_df, teacher_key=user_key)
                     if mapped_res:
-                        st.session_state[f"radio_tc1_{eval_key}"] = mapped_res["TC1"]
-                        st.session_state[f"radio_tc2_{eval_key}"] = mapped_res["TC2"]
-                        st.session_state[f"radio_tc3_{eval_key}"] = mapped_res["TC3"]
-                        st.session_state[f"radio_tc4_{eval_key}"] = mapped_res["TC4"]
-                        st.session_state[f"radio_tc5_{eval_key}"] = mapped_res["TC5"]
-                        st.session_state[f"radio_tc6_{eval_key}"] = mapped_res["TC6"]
-                        st.session_state[f"ctx_{eval_key}"] = mapped_res["Context"]
-                        st.session_state[f"cnc_{eval_key}"] = mapped_res["Conclusion"]
-                        st.session_state[f"pln_{eval_key}"] = mapped_res["Plan"]
-                        st.success(f"🎉 Đã tự động phân tích nhật ký hằng ngày cho bé **{std_eval}**!")
+                        for i in range(1, 7):
+                            val = mapped_res[f"TC{i}"]
+                            st.session_state[f"tc{i}_{std_eval}"] = val
+                            st.session_state[f"radio_tc{i}_{std_eval}"] = val
+                            st.session_state[f"radio_tc{i}_{eval_key}"] = val
+                        st.session_state[f"ctx_{std_eval}"] = mapped_res["Context"]
+                        st.session_state[f"cnc_{std_eval}"] = mapped_res["Conclusion"]
+                        st.session_state[f"pln_{std_eval}"] = mapped_res["Plan"]
+                        st.success(f"🎉 Đã tự động phân tích nhật ký cho bé **{std_eval}**!")
                         st.rerun()
-                    else:
-                        st.warning(f"⚠️ Chưa có nhật ký hằng ngày cho bé **{std_eval}** trong {eval_month} để tự động phân tích. Bạn có thể tự chọn các mức bên dưới!")
 
                 curr_crit_map = CRITERIA_DATA.get(curr_age_group, CRITERIA_DATA["Kindergarten (4-5 tuổi)"])
                 col_c1, col_c2 = st.columns(2)
                 
-                def_tc1 = st.session_state.get(f"radio_tc1_{eval_key}", 3)
-                def_tc2 = st.session_state.get(f"radio_tc2_{eval_key}", 3)
-                def_tc3 = st.session_state.get(f"radio_tc3_{eval_key}", 3)
-                def_tc4 = st.session_state.get(f"radio_tc4_{eval_key}", 3)
-                def_tc5 = st.session_state.get(f"radio_tc5_{eval_key}", 3)
-                def_tc6 = st.session_state.get(f"radio_tc6_{eval_key}", 3)
+                def_tc1 = st.session_state.get(f"radio_tc1_{eval_key}", st.session_state.get(f"tc1_{std_eval}", 3))
+                def_tc2 = st.session_state.get(f"radio_tc2_{eval_key}", st.session_state.get(f"tc2_{std_eval}", 3))
+                def_tc3 = st.session_state.get(f"radio_tc3_{eval_key}", st.session_state.get(f"tc3_{std_eval}", 3))
+                def_tc4 = st.session_state.get(f"radio_tc4_{eval_key}", st.session_state.get(f"tc4_{std_eval}", 3))
+                def_tc5 = st.session_state.get(f"radio_tc5_{eval_key}", st.session_state.get(f"tc5_{std_eval}", 3))
+                def_tc6 = st.session_state.get(f"radio_tc6_{eval_key}", st.session_state.get(f"tc6_{std_eval}", 3))
                 
                 opts = [1, 2, 3, 4]
                 
                 with col_c1:
                     st.markdown("##### 1. TC1: Nhận biết cảm xúc bản thân")
-                    tc1_val = st.radio("Chọn Mức cho TC1:", options=opts, index=max(0, min(3, def_tc1-1)), format_func=lambda x: f"Mức {x}", key=f"radio_tc1_{eval_key}", horizontal=True)
+                    tc1_val = st.radio("Chọn Mức cho TC1:", options=opts, index=def_tc1-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc1_{eval_key}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC1'][tc1_val]}")
                     
                     st.markdown("##### 2. TC2: Gọi tên và diễn đạt cảm xúc")
-                    tc2_val = st.radio("Chọn Mức cho TC2:", options=opts, index=max(0, min(3, def_tc2-1)), format_func=lambda x: f"Mức {x}", key=f"radio_tc2_{eval_key}", horizontal=True)
+                    tc2_val = st.radio("Chọn Mức cho TC2:", options=opts, index=def_tc2-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc2_{eval_key}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC2'][tc2_val]}")
                     
                     st.markdown("##### 3. TC3: Điều chỉnh và kiểm soát cảm xúc")
-                    tc3_val = st.radio("Chọn Mức cho TC3:", options=opts, index=max(0, min(3, def_tc3-1)), format_func=lambda x: f"Mức {x}", key=f"radio_tc3_{eval_key}", horizontal=True)
+                    tc3_val = st.radio("Chọn Mức cho TC3:", options=opts, index=def_tc3-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc3_{eval_key}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC3'][tc3_val]}")
 
                 with col_c2:
                     st.markdown("##### 4. TC4: Đồng cảm và quan hệ xã hội")
-                    tc4_val = st.radio("Chọn Mức cho TC4:", options=opts, index=max(0, min(3, def_tc4-1)), format_func=lambda x: f"Mức {x}", key=f"radio_tc4_{eval_key}", horizontal=True)
+                    tc4_val = st.radio("Chọn Mức cho TC4:", options=opts, index=def_tc4-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc4_{eval_key}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC4'][tc4_val]}")
                     
                     st.markdown("##### 5. TC5: Ảnh hưởng môi trường đến cảm xúc")
-                    tc5_val = st.radio("Chọn Mức cho TC5:", options=opts, index=max(0, min(3, def_tc5-1)), format_func=lambda x: f"Mức {x}", key=f"radio_tc5_{eval_key}", horizontal=True)
+                    tc5_val = st.radio("Chọn Mức cho TC5:", options=opts, index=def_tc5-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc5_{eval_key}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC5'][tc5_val]}")
                     
                     st.markdown("##### 6. TC6: Phản ứng khi cảm xúc được công nhận")
-                    tc6_val = st.radio("Chọn Mức cho TC6:", options=opts, index=max(0, min(3, def_tc6-1)), format_func=lambda x: f"Mức {x}", key=f"radio_tc6_{eval_key}", horizontal=True)
+                    tc6_val = st.radio("Chọn Mức cho TC6:", options=opts, index=def_tc6-1, format_func=lambda x: f"Mức {x}", key=f"radio_tc6_{eval_key}", horizontal=True)
                     st.info(f"💡 {curr_crit_map['TC6'][tc6_val]}")
 
                 peq = round((tc1_val + tc2_val + tc3_val + tc4_val + tc5_val + tc6_val) / 6.0, 2)
                 group_clean = "DUY TRÌ" if peq >= 3.2 else ("CẦN CẢI THIỆN" if peq >= 2.0 else "HỖ TRỢ ĐẶC BIỆT")
                 
                 st.markdown("---")
-                context_input = st.text_area("Bối cảnh / Minh chứng điển hình:", value=st.session_state.get(f"ctx_{eval_key}", f"Dựa trên theo dõi tháng..."))
-                conclusion_input = st.text_area("Kết luận xu hướng phát triển:", value=st.session_state.get(f"cnc_{eval_key}", f"Bé {std_eval} thuộc nhóm {group_clean}..."))
-                plan_input = st.text_area("Kế hoạch tác động tiếp theo:", value=st.session_state.get(f"pln_{eval_key}", f"Tiếp tục hỗ trợ bé..."))
+                context_input = st.text_area("Bối cảnh / Minh chứng điển hình:", value=st.session_state.get(f"ctx_{std_eval}", f"Dựa trên theo dõi tháng..."))
+                conclusion_input = st.text_area("Kết luận xu hướng phát triển:", value=st.session_state.get(f"cnc_{std_eval}", f"Bé {std_eval} thuộc nhóm {group_clean}..."))
+                plan_input = st.text_area("Kế hoạch tác động tiếp theo:", value=st.session_state.get(f"pln_{std_eval}", f"Tiếp tục hỗ trợ bé..."))
                 
                 col_save_btn, col_exp_btn = st.columns([1.5, 1.5])
                 
@@ -1967,32 +1912,29 @@ else:
                         e_term_col = "term" if "term" in e_df.columns else "Term"
                         e_y_col = "school_year" if "school_year" in e_df.columns else "School_Year"
                         
-                        matched_evals = filter_teacher_records(e_df, e_t_col, user_info)
-                        existing_mask = pd.Series()
-                        if not matched_evals.empty:
-                            existing_mask = (
-                                (matched_evals[e_s_col].apply(is_student_match, target_student_name=std_eval)) &
-                                (matched_evals[e_term_col].astype(str).str.strip() == str(term).strip()) &
-                                (matched_evals[e_y_col].astype(str).str.strip() == str(eval_school_year).strip())
-                            )
+                        existing_mask = (
+                            (e_df[e_t_col].apply(clean_key) == clean_key(user_info['name'])) &
+                            (e_df[e_s_col].apply(clean_key) == clean_key(std_eval)) &
+                            (e_df[e_term_col].astype(str).str.strip() == str(term).strip()) &
+                            (e_df[e_y_col].astype(str).str.strip() == str(eval_school_year).strip())
+                        )
                         
-                        if not existing_mask.empty and existing_mask.any():
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "eval_date"] = eval_date_str
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "tc1"] = tc1_val
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "tc2"] = tc2_val
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "tc3"] = tc3_val
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "tc4"] = tc4_val
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "tc5"] = tc5_val
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "tc6"] = tc6_val
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "p_eq"] = peq
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "group_clean"] = group_clean
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "context"] = context_input
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "conclusion"] = conclusion_input
-                            st.session_state.evaluations_df.loc[matched_evals[existing_mask].index, "plan"] = plan_input
+                        if existing_mask.any():
+                            st.session_state.evaluations_df.loc[existing_mask, "eval_date"] = eval_date_str
+                            st.session_state.evaluations_df.loc[existing_mask, "tc1"] = tc1_val
+                            st.session_state.evaluations_df.loc[existing_mask, "tc2"] = tc2_val
+                            st.session_state.evaluations_df.loc[existing_mask, "tc3"] = tc3_val
+                            st.session_state.evaluations_df.loc[existing_mask, "tc4"] = tc4_val
+                            st.session_state.evaluations_df.loc[existing_mask, "tc5"] = tc5_val
+                            st.session_state.evaluations_df.loc[existing_mask, "tc6"] = tc6_val
+                            st.session_state.evaluations_df.loc[existing_mask, "p_eq"] = peq
+                            st.session_state.evaluations_df.loc[existing_mask, "group_clean"] = group_clean
+                            st.session_state.evaluations_df.loc[existing_mask, "context"] = context_input
+                            st.session_state.evaluations_df.loc[existing_mask, "conclusion"] = conclusion_input
+                            st.session_state.evaluations_df.loc[existing_mask, "plan"] = plan_input
                         else:
                             new_eval = pd.DataFrame([{
-                                "teacher": user_info.get('name', user_info.get('raw_username', user_key)),
-                                "campus": user_info['campus'],
+                                "teacher": user_info['name'], "campus": user_info['campus'],
                                 "class": user_info.get('class_name', curr_age_group), "student": std_eval,
                                 "school_year": eval_school_year, "term": term, "eval_date": eval_date_str,
                                 "tc1": tc1_val, "tc2": tc2_val, "tc3": tc3_val, "tc4": tc4_val, "tc5": tc5_val, "tc6": tc6_val,
@@ -2000,6 +1942,12 @@ else:
                                 "context": context_input, "conclusion": conclusion_input, "plan": plan_input
                             }])
                             st.session_state.evaluations_df = pd.concat([st.session_state.evaluations_df, new_eval], ignore_index=True)
+                            
+                        st.session_state.evaluations_df["_t"] = st.session_state.evaluations_df[e_t_col].apply(clean_key)
+                        st.session_state.evaluations_df["_s"] = st.session_state.evaluations_df[e_s_col].apply(clean_key)
+                        st.session_state.evaluations_df["_term"] = st.session_state.evaluations_df[e_term_col].astype(str).str.strip()
+                        st.session_state.evaluations_df["_y"] = st.session_state.evaluations_df[e_y_col].astype(str).str.strip()
+                        st.session_state.evaluations_df = st.session_state.evaluations_df.drop_duplicates(subset=["_t", "_s", "_term", "_y"], keep="last").drop(columns=["_t", "_s", "_term", "_y"])
 
                         if save_sheet_to_gas("Evaluations", st.session_state.evaluations_df):
                             st.success(f"🎉 Đã lưu vĩnh viễn đánh giá EQ cho bé **{std_eval}**!")
@@ -2007,8 +1955,7 @@ else:
 
                 with col_exp_btn:
                     single_eval_df = pd.DataFrame([{
-                        "teacher": user_info.get('name', user_info.get('raw_username', user_key)),
-                        "campus": user_info['campus'],
+                        "teacher": user_info['name'], "campus": user_info['campus'],
                         "class": user_info.get('class_name', curr_age_group), "student": std_eval,
                         "school_year": eval_school_year, "term": term, "eval_date": eval_date_str,
                         "tc1": tc1_val, "tc2": tc2_val, "tc3": tc3_val, "tc4": tc4_val, "tc5": tc5_val, "tc6": tc6_val,
