@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
-GAS_URL = "https://script.google.com/macros/s/AKfycbwYyCVKVPrIw80fR13LysE3yZz2OrZRhPlfeymEJ6j-g_GkEfWtnauvNzfKJnEQYWNeqA/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbyLmKWVgiMnLk94OL1bjAVROT0jl-JhplqFmm1jpvIJMqZnUfzJUirRQMfyJsjgX34cPQ/exec"
 
 # -----------------------------------------------------------------------------
 # 🛠️ HÀM HỖ TRỢ CHUẨN HÓA MÃ CHUỖI & TÌM KIẾM AN TOÀN TUYỆT ĐỐI
@@ -55,154 +55,6 @@ def get_gas_sheet_rows(gas_data, sheet_name):
             elif isinstance(v, dict):
                 return [v]
     return []
-
-def is_date_in_time_filter(dt_str, time_mode, sel_month=None, sel_quarter=None, start_date=None, end_date=None):
-    if not dt_str or str(dt_str).strip().lower() in ['nan', 'none', '']:
-        return True
-    dt_str = str(dt_str).strip()
-    parsed_dt = None
-    try:
-        if '/' in dt_str:
-            parts = dt_str.split('/')
-            if len(parts) == 3: parsed_dt = datetime(int(parts[2]), int(parts[1]), int(parts[0]))
-        elif '-' in dt_str:
-            parts = dt_str.split('T')[0].split('-')
-            if len(parts) == 3: parsed_dt = datetime(int(parts[0]), int(parts[1]), int(parts[2]))
-    except Exception:
-        return True
-    if parsed_dt is None: return True
-    if time_mode == "Theo Tháng" and sel_month is not None:
-        return parsed_dt.month == int(sel_month)
-    elif time_mode == "Theo Quý" and sel_quarter is not None:
-        q_map = {1: [1, 2, 3], 2: [4, 5, 6], 3: [7, 8, 9], 4: [10, 11, 12]}
-        return parsed_dt.month in q_map.get(int(sel_quarter), [])
-    elif time_mode == "Khoảng ngày tự chọn" and start_date is not None and end_date is not None:
-        try:
-            s_dt = datetime.combine(start_date, datetime.min.time()) if hasattr(start_date, 'year') else start_date
-            e_dt = datetime.combine(end_date, datetime.max.time()) if hasattr(end_date, 'year') else end_date
-            return s_dt <= parsed_dt <= e_dt
-        except Exception:
-            return True
-    return True
-
-def filter_records_multilevel(df, campus_code=None, campus_name=None, class_type=None, 
-                              school_year=None, term_val=None, time_mode=None, 
-                              sel_month=None, sel_quarter=None, start_date=None, end_date=None,
-                              teacher_name=None, student_name=None):
-    if df is None or df.empty: return pd.DataFrame()
-    res_df = df.copy()
-    if campus_code and campus_code not in ["ALL", "Tất cả cơ sở", ""]:
-        c_col = "campus_code" if "campus_code" in res_df.columns else "campus"
-        if c_col in res_df.columns: res_df = res_df[res_df[c_col].apply(clean_key).str.contains(clean_key(campus_code))]
-    elif campus_name and campus_name not in ["Tất cả cơ sở", "ALL", ""]:
-        c_col = "campus" if "campus" in res_df.columns else "Campus"
-        if c_col in res_df.columns: res_df = res_df[res_df[c_col].apply(clean_key) == clean_key(campus_name)]
-    if class_type and class_type not in ["Tất cả các lớp", "Tất cả", "ALL", ""]:
-        cls_col = "class" if "class" in res_df.columns else "class_name"
-        if cls_col in res_df.columns: res_df = res_df[res_df[cls_col].apply(lambda v: is_class_match(v, class_type))]
-    if school_year and school_year not in ["Tất cả năm học", "ALL", ""]:
-        sy_col = "school_year" if "school_year" in res_df.columns else "School_Year"
-        if sy_col in res_df.columns: res_df = res_df[res_df[sy_col].astype(str).str.strip() == str(school_year).strip()]
-    if term_val and term_val not in ["Tất cả kỳ/tháng", "Tất cả mốc thời gian", "ALL", ""]:
-        t_col = "term" if "term" in res_df.columns else "Term"
-        if t_col in res_df.columns: res_df = res_df[res_df[t_col].astype(str).str.contains(str(term_val).strip(), case=False, na=False)]
-    if time_mode and time_mode != "Tất cả mốc thời gian":
-        d_col = "date" if "date" in res_df.columns else ("eval_date" if "eval_date" in res_df.columns else "comp_date")
-        if d_col in res_df.columns: res_df = res_df[res_df[d_col].apply(lambda d: is_date_in_time_filter(d, time_mode, sel_month, sel_quarter, start_date, end_date))]
-    if teacher_name and teacher_name not in ["Tất cả giáo viên", "ALL", ""]:
-        tch_col = "teacher" if "teacher" in res_df.columns else ("teacher_user" if "teacher_user" in res_df.columns else "Teacher")
-        if tch_col in res_df.columns: res_df = res_df[res_df[tch_col].apply(lambda v: is_teacher_match(v, teacher_name, teacher_name))]
-    if student_name and student_name not in ["Tất cả học sinh", "Tất cả học sinh / Cả lớp", "Cả lớp", "Tất cả", "ALL", ""]:
-        std_col = "student" if "student" in res_df.columns else ("student_name" if "student_name" in res_df.columns else "Student")
-        if std_col in res_df.columns: res_df = res_df[res_df[std_col].apply(lambda v: is_student_match(v, student_name))]
-    return res_df
-
-def synthesize_daily_logs_report(df_daily_raw, campus_name=None, class_type=None, 
-                                school_year=None, term_val=None, time_mode=None, 
-                                sel_month=None, sel_quarter=None, start_date=None, end_date=None,
-                                teacher_name=None, student_name=None):
-    if df_daily_raw is None or df_daily_raw.empty: return format_evaluations_export(pd.DataFrame())
-    df_filtered = filter_records_multilevel(
-        df_daily_raw, campus_name=campus_name, class_type=class_type,
-        school_year=school_year, term_val=term_val, time_mode=time_mode,
-        sel_month=sel_month, sel_quarter=sel_quarter, start_date=start_date, end_date=end_date,
-        teacher_name=teacher_name, student_name=student_name
-    )
-    if df_filtered.empty: return format_evaluations_export(pd.DataFrame())
-    s_col = "student" if "student" in df_filtered.columns else "Student"
-    t_col = "teacher" if "teacher" in df_filtered.columns else "Teacher"
-    c_col = "campus" if "campus" in df_filtered.columns else "Campus"
-    cls_col = "class" if "class" in df_filtered.columns else "Class"
-    synth_rows = []
-    grouped = df_filtered.groupby([s_col, t_col], as_index=False)
-    for (std, tch), group_df in grouped:
-        std_str = str(std).strip()
-        tch_str = str(tch).strip()
-        mapped_res = auto_map_daily_to_criteria(std_str, tch_str, group_df)
-        if mapped_res:
-            c_val = str(group_df[c_col].iloc[0]).strip() if c_col in group_df.columns else (campus_name or "TFA")
-            cls_val = str(group_df[cls_col].iloc[0]).strip() if cls_col in group_df.columns else (class_type or "Kindergarten")
-            time_label = "Mốc tự chọn"
-            if time_mode == "Theo Tháng" and sel_month: time_label = f"Tháng {sel_month}"
-            elif time_mode == "Theo Quý" and sel_quarter: time_label = f"Quý {sel_quarter}"
-            elif term_val: time_label = str(term_val)
-            synth_rows.append({
-                "teacher": tch_str, "campus": c_val, "class": cls_val, "student": std_str,
-                "school_year": school_year or "2026-2027", "term": time_label,
-                "eval_date": datetime.today().strftime("%d/%m/%Y"),
-                "tc1": mapped_res["TC1"], "tc2": mapped_res["TC2"], "tc3": mapped_res["TC3"],
-                "tc4": mapped_res["TC4"], "tc5": mapped_res["TC5"], "tc6": mapped_res["TC6"],
-                "p_eq": mapped_res["P_EQ"], "group_clean": mapped_res["Group_Clean"],
-                "context": mapped_res["Context"], "conclusion": mapped_res["Conclusion"], "plan": mapped_res["Plan"]
-            })
-    df_synth = pd.DataFrame(synth_rows)
-    return format_evaluations_export(df_synth)
-
-def synthesize_comparisons_report(df_daily_raw, campus_name=None, class_type=None, 
-                                  school_year=None, period1_mode="Tháng 9", period2_mode="Tháng 10",
-                                  teacher_name=None, student_name=None):
-    if df_daily_raw is None or df_daily_raw.empty: return format_comparisons_export(pd.DataFrame())
-    s_col = "student" if "student" in df_daily_raw.columns else "Student"
-    t_col = "teacher" if "teacher" in df_daily_raw.columns else "Teacher"
-    c_col = "campus" if "campus" in df_daily_raw.columns else "Campus"
-    cls_col = "class" if "class" in df_daily_raw.columns else "Class"
-    df_base = filter_records_multilevel(
-        df_daily_raw, campus_name=campus_name, class_type=class_type,
-        school_year=school_year, teacher_name=teacher_name, student_name=student_name
-    )
-    if df_base.empty: return format_comparisons_export(pd.DataFrame())
-    def parse_m_num(lbl):
-        digits = re.findall(r'\d+', str(lbl))
-        return int(digits[0]) if digits else None
-    m1 = parse_m_num(period1_mode)
-    m2 = parse_m_num(period2_mode)
-    comp_rows = []
-    grouped = df_base.groupby([s_col, t_col], as_index=False)
-    for (std, tch), group_df in grouped:
-        std_str = str(std).strip()
-        tch_str = str(tch).strip()
-        df_p1 = group_df[group_df["date"].apply(lambda d: is_date_in_time_filter(d, "Theo Tháng", sel_month=m1))] if m1 else group_df
-        df_p2 = group_df[group_df["date"].apply(lambda d: is_date_in_time_filter(d, "Theo Tháng", sel_month=m2))] if m2 else group_df
-        map1 = auto_map_daily_to_criteria(std_str, tch_str, df_p1)
-        map2 = auto_map_daily_to_criteria(std_str, tch_str, df_p2)
-        score1 = map1["P_EQ"] if map1 else 2.5
-        score2 = map2["P_EQ"] if map2 else 3.0
-        delta = round(score2 - score1, 2)
-        trend = "TIẾN BỘ VƯỢT BẬC" if delta >= 0.5 else ("TIẾN BỘ TÍCH CỰC" if delta > 0 else ("DUY TRÌ PHONG ĐỘ" if delta == 0 else "CẦN LƯU Ý (THỤT LÙI)"))
-        c_val = str(group_df[c_col].iloc[0]).strip() if c_col in group_df.columns else (campus_name or "TFA")
-        cls_val = str(group_df[cls_col].iloc[0]).strip() if cls_col in group_df.columns else (class_type or "Kindergarten")
-        comp_rows.append({
-            "teacher": tch_str, "campus": c_val, "class": cls_val, "student": std_str,
-            "school_year": school_year or "2026-2027", "comp_type": "Tự động từ Nhật ký ngày",
-            "period_1": period1_mode, "score_term1": score1,
-            "period_2": period2_mode, "score_term2": score2,
-            "delta": delta, "trend": trend,
-            "conclusion": f"Bé {std_str} có chỉ số biến thiên EQ Delta = {delta:+.2f}, thuộc nhóm xu hướng {trend}.",
-            "plan": "Tiếp tục đồng hành, củng cố năng lực quản trị cảm xúc cho bé.",
-            "comp_date": datetime.today().strftime("%d/%m/%Y")
-        })
-    df_comp = pd.DataFrame(comp_rows)
-    return format_comparisons_export(df_comp)
 
 # -----------------------------------------------------------------------------
 # 1. CẤU HÌNH TRANG & GIAO DIỆN TỐI ƯU CẢ TRÊN MÁY TÍNH VÀ ĐIỆN THOẠI (RESPONSIVE)
@@ -688,24 +540,17 @@ def is_teacher_match(val_in_df, target_teacher_user, target_teacher_name):
     return False
 
 def is_student_match(val_in_df, target_student_name):
-    if not target_student_name or target_student_name in ["Tất cả học sinh", "Tất cả học sinh / Cả lớp", "Cả lớp", "Tất cả", "ALL", ""]:
+    if not target_student_name or target_student_name in ['Tất cả học sinh', 'ALL', '']:
         return True
     if val_in_df is None or pd.isna(val_in_df):
         return False
     v_str = str(val_in_df).strip()
     if not v_str:
         return False
-        
-    c_v = clean_key(v_str)
-    c_t = clean_key(target_student_name)
-    if c_v == c_t:
+    v_clean = clean_key(v_str)
+    t_clean = clean_key(target_student_name)
+    if v_clean == t_clean or v_clean in t_clean or t_clean in v_clean:
         return True
-        
-    v_no_be = c_v.replace("be", "").strip()
-    t_no_be = c_t.replace("be", "").strip()
-    if v_no_be and t_no_be and (v_no_be == t_no_be or v_no_be in t_no_be or t_no_be in v_no_be):
-        return True
-        
     return False
 
 def filter_records_multilevel(df, campus_code='', campus_name='', class_type='', school_year='', term_val='', teacher_user='', teacher_name='', student_name=''):
@@ -1342,34 +1187,45 @@ else:
             with c3: sa_sel_year = st.selectbox("3. Chọn Năm Học:", ["Tất cả năm học"] + SCHOOL_YEAR_OPTIONS, key="sa_eval_year")
             
             c4, c5, c6 = st.columns(3)
-            with c4: sa_sel_term = st.selectbox("4. Mốc Thời Gian (Tháng/Quý):", ["Tất cả kỳ/tháng"] + [f"Tháng {m}" for m in range(1, 13)] + ["Quý 1", "Quý 2", "Quý 3", "Quý 4"], key="sa_eval_term")
+            with c4: sa_sel_time_mode = st.selectbox("4. Mốc Thời Gian:", ["Tất cả mốc thời gian", "Theo Tháng", "Theo Quý", "Khoảng ngày tự chọn"], key="sa_eval_time_mode")
+            
+            sa_sel_month = None; sa_sel_quarter = None; sa_start_d = None; sa_end_d = None
+            if sa_sel_time_mode == "Theo Tháng":
+                sa_sel_month = st.selectbox("Chọn Tháng:", list(range(1, 13)), index=datetime.today().month - 1, key="sa_eval_month")
+            elif sa_sel_time_mode == "Theo Quý":
+                curr_q = (datetime.today().month - 1) // 3 + 1
+                sa_sel_quarter = st.selectbox("Chọn Quý:", [1, 2, 3, 4], index=curr_q - 1, key="sa_eval_q")
+            elif sa_sel_time_mode == "Khoảng ngày tự chọn":
+                col_d1, col_d2 = st.columns(2)
+                with col_d1: sa_start_d = st.date_input("Từ ngày:", value=datetime.today(), key="sa_s_date")
+                with col_d2: sa_end_d = st.date_input("Đến ngày:", value=datetime.today(), key="sa_e_date")
+                
+            sa_sel_term = f"Tháng {sa_sel_month}" if sa_sel_month else (f"Quý {sa_sel_quarter}" if sa_sel_quarter else "Tất cả kỳ/tháng")
             
             u_df = st.session_state.users_df
             teacher_list = ["Tất cả giáo viên"]
             if not u_df.empty:
                 t_mask = u_df["role"].apply(clean_key) == "teacher"
                 if sa_sel_campus != "Tất cả cơ sở":
-                    t_mask = t_mask & u_df["campus"].apply(lambda v: is_campus_match(v, "", sa_sel_campus))
+                    t_mask = t_mask & u_df["campus"].apply(lambda v: is_campus_match(v, sa_sel_campus))
                 if sa_sel_class != "Tất cả các lớp":
                     t_mask = t_mask & u_df["class_name"].apply(lambda v: is_class_match(v, sa_sel_class))
                 teacher_list += sorted(list(set(u_df[t_mask]["name"].dropna().tolist())))
             with c5: sa_sel_teacher = st.selectbox("5. Chọn Giáo Viên:", teacher_list, key="sa_eval_teacher")
             
-            s_df = st.session_state.students_df
-            student_list = ["Tất cả học sinh"]
-            if not s_df.empty:
-                if sa_sel_teacher != "Tất cả giáo viên":
-                    s_df = s_df[s_df["teacher_user"].apply(lambda v: is_teacher_match(v, sa_sel_teacher, sa_sel_teacher))]
-                student_list += sorted(list(set(s_df["student_name"].dropna().tolist())))
-            with c6: sa_sel_student = st.selectbox("6. Chọn Học Sinh:", student_list, key="sa_eval_student")
+            std_names_sa = get_all_students_list(campus_filter=sa_sel_campus, class_filter=sa_sel_class, teacher_filter=sa_sel_teacher)
+            student_list_sa = ["Tất cả học sinh / Cả lớp"] + std_names_sa
+            with c6: sa_sel_student = st.selectbox("6. Chọn Học Sinh (hoặc Cả Lớp):", student_list_sa, key="sa_eval_student")
             
             st.markdown("---")
-            st.markdown("#### 1. Báo Cáo Đánh Giá EQ Chuẩn 6 Tiêu Chí (Bảng Đã Lưu)")
+            st.markdown("#### 1. Báo Cáo Đánh Giá EQ 6 Tiêu Chí (Đã Lưu Vĩnh Viễn)")
             df_eval_raw = st.session_state.evaluations_df
             df_eval_filtered = filter_records_multilevel(
                 df_eval_raw, campus_name=sa_sel_campus, class_type=sa_sel_class,
                 school_year=sa_sel_year, term_val=sa_sel_term,
-                teacher_name=sa_sel_teacher, student_name=sa_sel_student
+                teacher_name=sa_sel_teacher, student_name=sa_sel_student,
+                time_mode=sa_sel_time_mode, sel_month=sa_sel_month, sel_quarter=sa_sel_quarter,
+                start_date=sa_start_d, end_date=sa_end_d
             )
             df_export = format_evaluations_export(df_eval_filtered)
             st.dataframe(df_export, use_container_width=True)
@@ -1377,7 +1233,7 @@ else:
             if not df_eval_filtered.empty:
                 render_eq_charts(df_eval_filtered, "(Toàn Trường)")
             else:
-                st.info("ℹ️ Chưa có đánh giá EQ 6 Tiêu chí nào được lưu phù hợp với bộ lọc đã chọn.")
+                st.info("ℹ️ Chưa có bài đánh giá EQ 6 tiêu chí nào được lưu phù hợp với bộ lọc.")
                 
             st.download_button(
                 "📥 Xuất File CSV/Excel Bảng Đánh Giá EQ (Theo Bộ Lọc)",
@@ -1395,20 +1251,44 @@ else:
                 df_synth = synthesize_daily_logs_report(
                     df_daily_raw, campus_name=sa_sel_campus, class_type=sa_sel_class,
                     school_year=sa_sel_year, term_val=sa_sel_term,
-                    teacher_name=sa_sel_teacher, student_name=sa_sel_student
+                    teacher_name=sa_sel_teacher, student_name=sa_sel_student,
+                    time_mode=sa_sel_time_mode, sel_month=sa_sel_month, sel_quarter=sa_sel_quarter,
+                    start_date=sa_start_d, end_date=sa_end_d
                 )
                 if not df_synth.empty:
                     st.dataframe(df_synth, use_container_width=True)
                     st.download_button(
                         "📥 Tải Báo Cáo EQ Tự Động Từ Nhật Ký Ngày (.csv)",
                         df_synth.to_csv(index=False).encode('utf-8-sig'),
-                        f"Bao_Cao_EQ_Tu_Dong_Tu_Nhat_Ky_Ngay_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv",
+                        f"Bao_Cao_EQ_Tu_Dong_DailyLogs_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv",
                         key="sa_dl_download_btn"
                     )
                 else:
                     st.info("ℹ️ Không đủ dữ liệu Nhật ký ngày để tự động tổng hợp báo cáo cho học sinh đã chọn.")
             else:
                 st.info("ℹ️ Chưa ghi nhận Nhật ký cảm xúc hằng ngày nào phù hợp với bộ lọc đã chọn.")
+
+            st.markdown("---")
+            st.markdown("#### 📈 3. BẢNG SO SÁNH & XU HƯỚNG EQ TỰ ĐỘNG TOÀN HỆ THỐNG TỪ NHẬT KÝ NGÀY")
+            col_sp1, col_sp2 = st.columns(2)
+            with col_sp1: sa_p1 = st.selectbox("Chọn Đợt 1:", [f"Tháng {m}" for m in range(1, 13)], index=8, key="sa_comp_p1")
+            with col_sp2: sa_p2 = st.selectbox("Chọn Đợt 2:", [f"Tháng {m}" for m in range(1, 13)], index=9, key="sa_comp_p2")
+            
+            df_sa_comp_synth = synthesize_comparisons_report(
+                df_daily_raw, campus_name=sa_sel_campus, class_type=sa_sel_class,
+                school_year=sa_sel_year, teacher_name=sa_sel_teacher, student_name=sa_sel_student,
+                period1_mode=sa_p1, period2_mode=sa_p2
+            )
+            if not df_sa_comp_synth.empty:
+                st.dataframe(df_sa_comp_synth, use_container_width=True)
+                st.download_button(
+                    "📥 Tải Bảng So Sánh Xu Hướng EQ Tự Động Toàn Hệ Thống (.csv)",
+                    df_sa_comp_synth.to_csv(index=False).encode('utf-8-sig'),
+                    f"Bang_So_Sanh_Xu_Huong_TFA_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv",
+                    key="sa_comp_synth_down"
+                )
+            else:
+                st.info("ℹ️ Chưa đủ dữ liệu Nhật ký ngày để so sánh xu hướng đợt 1 vs đợt 2.")
 
         elif main_menu == "📈 3. Bảng So Sánh & Xu Hướng EQ":
             st.subheader("📈 BẢNG SO SÁNH & XU HƯỚNG PHÁT TRIỂN EQ TOÀN TRƯỜNG")
@@ -2246,14 +2126,8 @@ else:
                     with col_td1: t_start_d = st.date_input("Từ ngày:", value=datetime.today(), key="t_s_date")
                     with col_td2: t_end_d = st.date_input("Đến ngày:", value=datetime.today(), key="t_e_date")
                     
-            s_df = st.session_state.students_df
-            my_stds_list = ["Tất cả học sinh / Cả lớp"]
-            if not s_df.empty:
-                t_col_s = "teacher_user" if "teacher_user" in s_df.columns else "Teacher_User"
-                std_col_s = "student_name" if "student_name" in s_df.columns else "Student_Name"
-                my_stds_df_s = filter_df_by_clean_col(s_df, t_col_s, user_key)
-                if not my_stds_df_s.empty and std_col_s in my_stds_df_s.columns:
-                    my_stds_list += sorted(list(set(my_stds_df_s[std_col_s].dropna().tolist())))
+            t_std_names = get_all_students_list(teacher_user_key=user_key)
+            my_stds_list = ["Tất cả học sinh / Cả lớp"] + t_std_names
                     
             with col_tf2:
                 t_sel_student = st.selectbox("2. Chọn Học Sinh (hoặc Cả Lớp):", my_stds_list, key="t_eval_student")
