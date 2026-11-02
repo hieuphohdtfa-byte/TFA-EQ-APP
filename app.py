@@ -15,140 +15,21 @@ GAS_URL = "https://script.google.com/macros/s/AKfycbwYyCVKVPrIw80fR13LysE3yZz2Or
 # -----------------------------------------------------------------------------
 # 🛠️ HÀM HỖ TRỢ CHUẨN HÓA MÃ CHUỖI & TÌM KIẾM AN TOÀN TUYỆT ĐỐI
 # -----------------------------------------------------------------------------
-
 def clean_date_str(val):
-    if val is None or pd.isna(val):
-        return ""
+    """ Chuẩn hóa chuỗi ngày tháng về dạng DD/MM/YYYY để so sánh nhất quán """
+    if val is None or pd.isna(val): return ''
     s = str(val).strip()
-    if not s or s.lower() in ["nan", "none"]:
-        return ""
-    if "T" in s:
-        s = s.split("T")[0]
-    if "-" in s:
-        parts = s.split("-")
+    if not s or s.lower() in ['nan', 'none']: return ''
+    if 'T' in s: s = s.split('T')[0]
+    if '-' in s:
+        parts = s.split('-')
         if len(parts) == 3 and len(parts[0]) == 4:
             return f"{parts[2].zfill(2)}/{parts[1].zfill(2)}/{parts[0]}"
-    if "/" in s:
-        parts = s.split("/")
+    if '/' in s:
+        parts = s.split('/')
         if len(parts) == 3:
             return f"{parts[0].zfill(2)}/{parts[1].zfill(2)}/{parts[2]}"
     return s
-
-def clean_student_key(val):
-    if val is None or pd.isna(val):
-        return ""
-    s = str(val).strip().lower()
-    s = re.sub(r'^(bé|học sinh|trẻ|em)\s+', '', s)
-    return re.sub(r'[^a-z0-9àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', '', s)
-
-def filter_records_multilevel(df, campus_name="Tất cả", class_type="Tất cả", school_year="Tất cả", term_val="Tất cả", teacher_name="Tất cả", student_name="Tất cả", time_mode="Tất cả mốc thời gian", sel_month=None, sel_quarter=None, start_date=None, end_date=None):
-    if df is None or df.empty:
-        return pd.DataFrame()
-    f_df = df.copy()
-    
-    if campus_name and campus_name not in ["Tất cả cơ sở", "Tất cả", ""]:
-        c_col = "campus" if "campus" in f_df.columns else "Campus"
-        if c_col in f_df.columns:
-            f_df = f_df[f_df[c_col].apply(lambda v: is_campus_match(v, "", campus_name))]
-            
-    if class_type and class_type not in ["Tất cả các lớp", "Tất cả", ""]:
-        cls_col = "class" if "class" in f_df.columns else ("class_name" if "class_name" in f_df.columns else "Class")
-        if cls_col in f_df.columns:
-            f_df = f_df[f_df[cls_col].apply(lambda v: is_class_match(v, class_type))]
-            
-    if school_year and school_year not in ["Tất cả năm học", "Tất cả", ""]:
-        y_col = "school_year" if "school_year" in f_df.columns else "School_Year"
-        if y_col in f_df.columns:
-            f_df = f_df[f_df[y_col].apply(lambda v: is_year_match(v, school_year))]
-            
-    if term_val and term_val not in ["Tất cả mốc thời gian", "Tất cả", ""]:
-        t_col = "term" if "term" in f_df.columns else "Term"
-        if t_col in f_df.columns:
-            f_df = f_df[f_df[t_col].apply(lambda v: is_term_match(v, term_val))]
-            
-    if teacher_name and teacher_name not in ["Tất cả giáo viên", "Tất cả", ""]:
-        t_col = "teacher" if "teacher" in f_df.columns else ("teacher_user" if "teacher_user" in f_df.columns else "Teacher")
-        if t_col in f_df.columns:
-            f_df = f_df[f_df[t_col].apply(lambda v: is_teacher_match(v, teacher_name, teacher_name))]
-            
-    if student_name and student_name not in ["Tất cả học sinh / Cả lớp", "Tất cả học sinh", "Tất cả", ""]:
-        s_col = "student" if "student" in f_df.columns else ("student_name" if "student_name" in f_df.columns else "Student")
-        if s_col in f_df.columns:
-            f_df = f_df[f_df[s_col].apply(lambda v: is_student_match(v, student_name))]
-            
-    d_col = "date" if "date" in f_df.columns else ("eval_date" if "eval_date" in f_df.columns else "Date")
-    if d_col in f_df.columns and time_mode and time_mode != "Tất cả mốc thời gian":
-        def parse_d(val):
-            try:
-                s = clean_date_str(val)
-                return datetime.strptime(s, "%d/%m/%Y")
-            except Exception:
-                return None
-        parsed_dates = f_df[d_col].apply(parse_d)
-        
-        if time_mode == "Theo Tháng" and sel_month:
-            f_df = f_df[parsed_dates.apply(lambda d: d.month == sel_month if d else False)]
-        elif time_mode == "Theo Quý" and sel_quarter:
-            f_df = f_df[parsed_dates.apply(lambda d: (d.month - 1) // 3 + 1 == sel_quarter if d else False)]
-        elif time_mode == "Khoảng ngày tự chọn" and start_date and end_date:
-            st_d = datetime.combine(start_date, datetime.min.time()) if hasattr(start_date, 'year') else start_date
-            et_d = datetime.combine(end_date, datetime.max.time()) if hasattr(end_date, 'year') else end_date
-            f_df = f_df[parsed_dates.apply(lambda d: st_d <= d <= et_d if d else False)]
-            
-    return f_df
-
-def synthesize_comparisons_report(daily_df, campus_name="Tất cả", class_type="Tất cả", school_year="Tất cả", teacher_name="Tất cả", student_name="Tất cả", period1_mode="Tháng 9", period2_mode="Tháng 10"):
-    if daily_df is None or daily_df.empty:
-        return pd.DataFrame()
-        
-    def parse_period_num(mode_str):
-        m = re.search(r'\d+', str(mode_str))
-        return int(m.group()) if m else None
-        
-    m1 = parse_period_num(period1_mode)
-    m2 = parse_period_num(period2_mode)
-    
-    logs_p1 = filter_records_multilevel(daily_df, campus_name=campus_name, class_type=class_type, school_year=school_year, teacher_name=teacher_name, student_name=student_name, time_mode="Theo Tháng", sel_month=m1)
-    logs_p2 = filter_records_multilevel(daily_df, campus_name=campus_name, class_type=class_type, school_year=school_year, teacher_name=teacher_name, student_name=student_name, time_mode="Theo Tháng", sel_month=m2)
-    
-    s_col = "student" if "student" in daily_df.columns else "Student"
-    t_col = "teacher" if "teacher" in daily_df.columns else "Teacher"
-    
-    students_p1 = set(logs_p1[s_col].dropna().unique()) if not logs_p1.empty and s_col in logs_p1.columns else set()
-    students_p2 = set(logs_p2[s_col].dropna().unique()) if not logs_p2.empty and s_col in logs_p2.columns else set()
-    all_stds = sorted(list(students_p1.union(students_p2)))
-    
-    if not all_stds:
-        return pd.DataFrame()
-        
-    comp_rows = []
-    for std in all_stds:
-        p1_std_logs = logs_p1[logs_p1[s_col].apply(clean_key) == clean_key(std)] if not logs_p1.empty and s_col in logs_p1.columns else pd.DataFrame()
-        p2_std_logs = logs_p2[logs_p2[s_col].apply(clean_key) == clean_key(std)] if not logs_p2.empty and s_col in logs_p2.columns else pd.DataFrame()
-        
-        t_name = p1_std_logs[t_col].iloc[0] if not p1_std_logs.empty and t_col in p1_std_logs.columns else (p2_std_logs[t_col].iloc[0] if not p2_std_logs.empty and t_col in p2_std_logs.columns else teacher_name)
-        
-        map1 = auto_map_daily_to_criteria(std, t_name, p1_std_logs) if not p1_std_logs.empty else None
-        map2 = auto_map_daily_to_criteria(std, t_name, p2_std_logs) if not p2_std_logs.empty else None
-        
-        score1 = round(sum([map1[f"TC{i}"] for i in range(1, 7)]) / 6.0, 2) if map1 else 2.5
-        score2 = round(sum([map2[f"TC{i}"] for i in range(1, 7)]) / 6.0, 2) if map2 else 2.5
-        
-        delta = round(score2 - score1, 2)
-        trend_tag = "TIẾN BỘ VƯỢT BẬC" if delta >= 0.5 else ("TIẾN BỘ TÍCH CỰC" if delta > 0 else ("DUY TRÌ PHONG ĐỘ" if delta == 0 else "CẦN LƯU Ý (THỤT LÙI)"))
-        
-        comp_rows.append({
-            "Tên học sinh": std,
-            "Giáo viên phụ trách": t_name,
-            "Đợt 1": period1_mode,
-            "Điểm Đợt 1": score1,
-            "Đợt 2": period2_mode,
-            "Điểm Đợt 2": score2,
-            "Biến thiên (Delta)": f"{delta:+.2f}",
-            "Xu hướng EQ": trend_tag
-        })
-        
-    return pd.DataFrame(comp_rows)
 
 def clean_key(val):
     """ Xóa khoảng trắng, chữ thường, bỏ .0 và chuẩn hóa số 0 ở đầu SĐT/Mã """
@@ -161,6 +42,13 @@ def clean_key(val):
     if s.startswith("0") and len(s) > 1:
         s = s[1:]
     return s
+
+def filter_teacher_records(df, teacher_col, user_key, user_name):
+    """ Lọc dữ liệu của Giáo viên theo SĐT / Tên / Username """
+    if df is None or df.empty or teacher_col not in df.columns:
+        return pd.DataFrame()
+    mask = df[teacher_col].apply(lambda v: is_teacher_match(v, user_key, user_name))
+    return df[mask]
 
 def filter_df_by_clean_col(df, col_name, target_val):
     """ Lọc DataFrame không lo phân biệt hoa/thường, khoảng trắng, số 0 ở đầu hay đuôi .0 """
@@ -1673,7 +1561,7 @@ else:
             st.markdown("##### 📋 Danh Sách Học Sinh Trong Lớp")
             
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
-            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
+            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
             
             if not my_stds_df.empty:
                 for idx in my_stds_df.index:
@@ -1720,7 +1608,7 @@ else:
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
             s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
             
-            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
+            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
             my_stds = my_stds_df[s_col].tolist() if not my_stds_df.empty and s_col in my_stds_df.columns else []
             
             if not my_stds:
@@ -1759,10 +1647,12 @@ else:
                     d_s_col = "student" if "student" in d_df.columns else "Student"
                     d_d_col = "date" if "date" in d_df.columns else "Date"
                     
-                    match_log_mask = (
-                        (d_df[d_t_col].apply(clean_key) == clean_key(user_info['name'])) &
-                        (d_df[d_s_col].apply(clean_key) == clean_key(std_select)) &
-                        (d_df[d_d_col].astype(str).str.strip() == selected_date_str)
+                    target_date_clean = clean_date_str(selected_date_str)
+                    match_log_mask = d_df.apply(
+                        lambda r: is_teacher_match(r.get(d_t_col), user_key, user_info['name']) and
+                                  is_student_match(r.get(d_s_col), std_select) and
+                                  clean_date_str(r.get(d_d_col)) == target_date_clean,
+                        axis=1
                     )
                     
                     if match_log_mask.any():
@@ -1916,10 +1806,11 @@ else:
                         d_s_col = "student" if "student" in d_df.columns else "Student"
                         d_d_col = "date" if "date" in d_df.columns else "Date"
                         
+                        target_date_clean = clean_date_str(selected_date_str)
                         existing_mask = d_df.apply(
                             lambda r: is_teacher_match(r.get(d_t_col), user_key, user_info['name']) and
                                       is_student_match(r.get(d_s_col), std_select) and
-                                      clean_date_str(r.get(d_d_col)) == selected_date_str,
+                                      clean_date_str(r.get(d_d_col)) == target_date_clean,
                             axis=1
                         )
                         
@@ -1941,8 +1832,8 @@ else:
                             st.session_state.daily_logs_df = pd.concat([st.session_state.daily_logs_df, new_log], ignore_index=True)
                         
                         st.session_state.daily_logs_df["_t"] = st.session_state.daily_logs_df[d_t_col].apply(clean_key)
-                        st.session_state.daily_logs_df["_s"] = st.session_state.daily_logs_df[d_s_col].apply(lambda v: clean_key(v).replace("be", "").strip())
-                        st.session_state.daily_logs_df["_d"] = st.session_state.daily_logs_df[d_d_col].apply(clean_date_str)
+                        st.session_state.daily_logs_df["_s"] = st.session_state.daily_logs_df[d_s_col].apply(clean_key)
+                        st.session_state.daily_logs_df["_d"] = st.session_state.daily_logs_df[d_d_col].astype(str).str.strip()
                         st.session_state.daily_logs_df = st.session_state.daily_logs_df.drop_duplicates(subset=["_t", "_s", "_d"], keep="last").drop(columns=["_t", "_s", "_d"])
 
                         if save_sheet_to_gas("DailyLogs", st.session_state.daily_logs_df):
@@ -1954,7 +1845,7 @@ else:
             
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
             s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
-            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
+            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
             my_stds = my_stds_df[s_col].tolist() if not my_stds_df.empty and s_col in my_stds_df.columns else []
             
             if not my_stds: st.warning("⚠️ Lớp bạn chưa có học sinh.")
@@ -1977,9 +1868,33 @@ else:
                 
                 st.info(f"📘 Bộ tiêu chí: **{curr_age_group}** | 📅 Ngày đánh giá: **{eval_date_str}** | 🏫 Năm học: **{eval_school_year}**")
                 
+                existing_eval = None
+                if not st.session_state.evaluations_df.empty:
+                    e_df = st.session_state.evaluations_df
+                    e_t_col = "teacher" if "teacher" in e_df.columns else "Teacher"
+                    e_s_col = "student" if "student" in e_df.columns else "Student"
+                    e_term_col = "term" if "term" in e_df.columns else "Term"
+                    e_y_col = "school_year" if "school_year" in e_df.columns else "School_Year"
+                    
+                    eval_mask = e_df.apply(
+                        lambda r: is_teacher_match(r.get(e_t_col), user_key, user_info['name']) and
+                                  is_student_match(r.get(e_s_col), std_eval) and
+                                  is_term_match(r.get(e_term_col), term) and
+                                  (clean_key(r.get(e_y_col)) == clean_key(eval_school_year) or not eval_school_year),
+                        axis=1
+                    )
+                    if eval_mask.any():
+                        existing_eval = e_df[eval_mask].iloc[-1]
+
+                if existing_eval is not None:
+                    st.success(f"ℹ️ **Đã tìm thấy Bài đánh giá EQ {term} ({eval_school_year}) của bé {std_eval}.** Bạn có thể xem lại hoặc chỉnh sửa thông tin bên dưới rồi bấm Lưu!")
+                else:
+                    st.info(f"📝 Bé **{std_eval}** chưa có bài đánh giá EQ cho **{term} ({eval_school_year})**. Nhập thông tin bên dưới hoặc bấm nút Tự động tổng hợp để tạo mới!")
+
                 if st.button("⚡ TỰ ĐỘNG TỔNG HỢP EQ THÁNG (1-CLICK TỪ NHẬT KÝ HẰNG NGÀY)"):
                     mapped_res = auto_map_daily_to_criteria(std_eval, user_info['name'], st.session_state.daily_logs_df)
                     if mapped_res:
+                        st.session_state[f"auto_mapped_{std_eval}"] = True
                         st.session_state[f"tc1_{std_eval}"] = mapped_res["TC1"]
                         st.session_state[f"tc2_{std_eval}"] = mapped_res["TC2"]
                         st.session_state[f"tc3_{std_eval}"] = mapped_res["TC3"]
@@ -1990,16 +1905,48 @@ else:
                         st.session_state[f"cnc_{std_eval}"] = mapped_res["Conclusion"]
                         st.session_state[f"pln_{std_eval}"] = mapped_res["Plan"]
                         st.success(f"🎉 Đã tự động phân tích nhật ký cho bé **{std_eval}**!")
+                        st.rerun()
 
                 curr_crit_map = CRITERIA_DATA.get(curr_age_group, CRITERIA_DATA["Kindergarten (4-5 tuổi)"])
                 col_c1, col_c2 = st.columns(2)
                 
-                def_tc1 = st.session_state.get(f"tc1_{std_eval}", 3)
-                def_tc2 = st.session_state.get(f"tc2_{std_eval}", 3)
-                def_tc3 = st.session_state.get(f"tc3_{std_eval}", 3)
-                def_tc4 = st.session_state.get(f"tc4_{std_eval}", 3)
-                def_tc5 = st.session_state.get(f"tc5_{std_eval}", 3)
-                def_tc6 = st.session_state.get(f"tc6_{std_eval}", 3)
+                def parse_level(v, default=3):
+                    try:
+                        val = int(float(v))
+                        if 1 <= val <= 4: return val
+                    except Exception: pass
+                    return default
+
+                if st.session_state.get(f"auto_mapped_{std_eval}", False):
+                    def_tc1 = st.session_state.get(f"tc1_{std_eval}", 3)
+                    def_tc2 = st.session_state.get(f"tc2_{std_eval}", 3)
+                    def_tc3 = st.session_state.get(f"tc3_{std_eval}", 3)
+                    def_tc4 = st.session_state.get(f"tc4_{std_eval}", 3)
+                    def_tc5 = st.session_state.get(f"tc5_{std_eval}", 3)
+                    def_tc6 = st.session_state.get(f"tc6_{std_eval}", 3)
+                    def_ctx = st.session_state.get(f"ctx_{std_eval}", "")
+                    def_cnc = st.session_state.get(f"cnc_{std_eval}", "")
+                    def_pln = st.session_state.get(f"pln_{std_eval}", "")
+                elif existing_eval is not None:
+                    def_tc1 = parse_level(existing_eval.get('tc1'), 3)
+                    def_tc2 = parse_level(existing_eval.get('tc2'), 3)
+                    def_tc3 = parse_level(existing_eval.get('tc3'), 3)
+                    def_tc4 = parse_level(existing_eval.get('tc4'), 3)
+                    def_tc5 = parse_level(existing_eval.get('tc5'), 3)
+                    def_tc6 = parse_level(existing_eval.get('tc6'), 3)
+                    def_ctx = str(existing_eval.get('context', ''))
+                    def_cnc = str(existing_eval.get('conclusion', ''))
+                    def_pln = str(existing_eval.get('plan', ''))
+                else:
+                    def_tc1 = st.session_state.get(f"tc1_{std_eval}", 3)
+                    def_tc2 = st.session_state.get(f"tc2_{std_eval}", 3)
+                    def_tc3 = st.session_state.get(f"tc3_{std_eval}", 3)
+                    def_tc4 = st.session_state.get(f"tc4_{std_eval}", 3)
+                    def_tc5 = st.session_state.get(f"tc5_{std_eval}", 3)
+                    def_tc6 = st.session_state.get(f"tc6_{std_eval}", 3)
+                    def_ctx = st.session_state.get(f"ctx_{std_eval}", f"Dựa trên theo dõi tháng {m_num} của bé {std_eval}...")
+                    def_cnc = st.session_state.get(f"cnc_{std_eval}", f"Bé {std_eval} phát triển cảm xúc ổn định...")
+                    def_pln = st.session_state.get(f"pln_{std_eval}", f"Tiếp tục hỗ trợ bé {std_eval}...")
                 
                 opts = [1, 2, 3, 4]
                 
@@ -2033,9 +1980,9 @@ else:
                 group_clean = "DUY TRÌ" if peq >= 3.2 else ("CẦN CẢI THIỆN" if peq >= 2.0 else "HỖ TRỢ ĐẶC BIỆT")
                 
                 st.markdown("---")
-                context_input = st.text_area("Bối cảnh / Minh chứng điển hình:", value=st.session_state.get(f"ctx_{std_eval}", f"Dựa trên theo dõi tháng..."))
-                conclusion_input = st.text_area("Kết luận xu hướng phát triển:", value=st.session_state.get(f"cnc_{std_eval}", f"Bé {std_eval} thuộc nhóm {group_clean}..."))
-                plan_input = st.text_area("Kế hoạch tác động tiếp theo:", value=st.session_state.get(f"pln_{std_eval}", f"Tiếp tục hỗ trợ bé..."))
+                context_input = st.text_area("Bối cảnh / Minh chứng điển hình:", value=def_ctx)
+                conclusion_input = st.text_area("Kết luận xu hướng phát triển:", value=def_cnc)
+                plan_input = st.text_area("✍️ Kế hoạch tác động & hỗ trợ riêng của giáo viên (Cô trực tiếp nhập / điều chỉnh kế hoạch):", value=def_pln)
                 
                 col_save_btn, col_exp_btn = st.columns([1.5, 1.5])
                 
@@ -2080,7 +2027,7 @@ else:
                             st.session_state.evaluations_df = pd.concat([st.session_state.evaluations_df, new_eval], ignore_index=True)
                             
                         st.session_state.evaluations_df["_t"] = st.session_state.evaluations_df[e_t_col].apply(clean_key)
-                        st.session_state.evaluations_df["_s"] = st.session_state.evaluations_df[e_s_col].apply(lambda v: clean_key(v).replace("be", "").strip())
+                        st.session_state.evaluations_df["_s"] = st.session_state.evaluations_df[e_s_col].apply(clean_key)
                         st.session_state.evaluations_df["_term"] = st.session_state.evaluations_df[e_term_col].astype(str).str.strip()
                         st.session_state.evaluations_df["_y"] = st.session_state.evaluations_df[e_y_col].astype(str).str.strip()
                         st.session_state.evaluations_df = st.session_state.evaluations_df.drop_duplicates(subset=["_t", "_s", "_term", "_y"], keep="last").drop(columns=["_t", "_s", "_term", "_y"])
@@ -2110,7 +2057,7 @@ else:
             
             t_col = "teacher_user" if "teacher_user" in st.session_state.students_df.columns else "Teacher_User"
             s_col = "student_name" if "student_name" in st.session_state.students_df.columns else "Student_Name"
-            my_stds_df = filter_df_by_clean_col(st.session_state.students_df, t_col, user_key)
+            my_stds_df = filter_teacher_records(st.session_state.students_df, t_col, user_key, user_info['name'])
             my_stds = my_stds_df[s_col].tolist() if not my_stds_df.empty and s_col in my_stds_df.columns else []
             
             if not my_stds: st.warning("⚠️ Lớp bạn chưa có học sinh.")
@@ -2153,13 +2100,12 @@ else:
                         c_p1_col = "period_1" if "period_1" in c_df.columns else "Period_1"
                         c_p2_col = "period_2" if "period_2" in c_df.columns else "Period_2"
                         
-                        existing_mask = c_df.apply(
-                            lambda r: is_teacher_match(r.get(c_t_col), user_key, user_info['name']) and
-                                      is_student_match(r.get(c_s_col), std_comp) and
-                                      clean_key(r.get(c_type_col)) == clean_key(comp_type) and
-                                      clean_key(r.get(c_p1_col)) == clean_key(period_1_label) and
-                                      clean_key(r.get(c_p2_col)) == clean_key(period_2_label),
-                            axis=1
+                        existing_mask = (
+                            (c_df[c_t_col].apply(clean_key) == clean_key(user_info['name'])) &
+                            (c_df[c_s_col].apply(clean_key) == clean_key(std_comp)) &
+                            (c_df[c_type_col].astype(str).str.strip() == str(comp_type).strip()) &
+                            (c_df[c_p1_col].astype(str).str.strip() == str(period_1_label).strip()) &
+                            (c_df[c_p2_col].astype(str).str.strip() == str(period_2_label).strip())
                         )
                         
                         if existing_mask.any():
@@ -2183,7 +2129,7 @@ else:
                             st.session_state.comparisons_df = pd.concat([st.session_state.comparisons_df, new_comp], ignore_index=True)
                             
                         st.session_state.comparisons_df["_t"] = st.session_state.comparisons_df[c_t_col].apply(clean_key)
-                        st.session_state.comparisons_df["_s"] = st.session_state.comparisons_df[c_s_col].apply(lambda v: clean_key(v).replace("be", "").strip())
+                        st.session_state.comparisons_df["_s"] = st.session_state.comparisons_df[c_s_col].apply(clean_key)
                         st.session_state.comparisons_df["_p1"] = st.session_state.comparisons_df[c_p1_col].astype(str).str.strip()
                         st.session_state.comparisons_df["_p2"] = st.session_state.comparisons_df[c_p2_col].astype(str).str.strip()
                         st.session_state.comparisons_df = st.session_state.comparisons_df.drop_duplicates(subset=["_t", "_s", "_p1", "_p2"], keep="last").drop(columns=["_t", "_s", "_p1", "_p2"])
@@ -2213,7 +2159,7 @@ else:
             st.subheader("📊 BÁO CÁO TỔNG HỢP EQ VÀ XU HƯỚNG CỦA LỚP")
             
             t_col = "teacher" if "teacher" in st.session_state.evaluations_df.columns else "Teacher"
-            df_my_eval = filter_df_by_clean_col(st.session_state.evaluations_df, t_col, user_info['name'])
+            df_my_eval = filter_teacher_records(st.session_state.evaluations_df, t_col, user_key, user_info['name'])
             df_my_eval_export = format_evaluations_export(df_my_eval)
             
             st.markdown("##### 1. Bảng Đánh Giá EQ 6 Tiêu Chí Của Lớp")
@@ -2226,7 +2172,7 @@ else:
             st.markdown("##### 2. Bảng Xu Hướng & So Sánh EQ Của Lớp")
             
             tc_col = "teacher" if "teacher" in st.session_state.comparisons_df.columns else "Teacher"
-            df_my_comp = filter_df_by_clean_col(st.session_state.comparisons_df, tc_col, user_info['name'])
+            df_my_comp = filter_teacher_records(st.session_state.comparisons_df, tc_col, user_key, user_info['name'])
             df_my_comp_export = format_comparisons_export(df_my_comp)
             
             st.dataframe(df_my_comp_export, use_container_width=True)
