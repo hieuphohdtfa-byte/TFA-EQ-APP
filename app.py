@@ -15,21 +15,8 @@ GAS_URL = "https://script.google.com/macros/s/AKfycbwYyCVKVPrIw80fR13LysE3yZz2Or
 # -----------------------------------------------------------------------------
 # 🛠️ HÀM HỖ TRỢ CHUẨN HÓA MÃ CHUỖI & TÌM KIẾM AN TOÀN TUYỆT ĐỐI
 # -----------------------------------------------------------------------------
-def clean_key(val):
-    """ Xóa khoảng trắng, chữ thường, bỏ .0 và chuẩn hóa số 0 ở đầu SĐT/Mã """
-    if val is None or pd.isna(val):
-        return ""
-    s = str(val).strip().lower()
-    s = s.replace(".0", "")
-    if s in ["nan", "none"]:
-        return ""
-    if s.startswith("0") and len(s) > 1:
-        s = s[1:]
-    return s
-
 
 def clean_date_str(val):
-    """ Chuẩn hóa chuỗi ngày tháng về dạng DD/MM/YYYY """
     if val is None or pd.isna(val):
         return ""
     s = str(val).strip()
@@ -45,6 +32,134 @@ def clean_date_str(val):
         parts = s.split("/")
         if len(parts) == 3:
             return f"{parts[0].zfill(2)}/{parts[1].zfill(2)}/{parts[2]}"
+    return s
+
+def clean_student_key(val):
+    if val is None or pd.isna(val):
+        return ""
+    s = str(val).strip().lower()
+    s = re.sub(r'^(bé|học sinh|trẻ|em)\s+', '', s)
+    return re.sub(r'[^a-z0-9àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]', '', s)
+
+def filter_records_multilevel(df, campus_name="Tất cả", class_type="Tất cả", school_year="Tất cả", term_val="Tất cả", teacher_name="Tất cả", student_name="Tất cả", time_mode="Tất cả mốc thời gian", sel_month=None, sel_quarter=None, start_date=None, end_date=None):
+    if df is None or df.empty:
+        return pd.DataFrame()
+    f_df = df.copy()
+    
+    if campus_name and campus_name not in ["Tất cả cơ sở", "Tất cả", ""]:
+        c_col = "campus" if "campus" in f_df.columns else "Campus"
+        if c_col in f_df.columns:
+            f_df = f_df[f_df[c_col].apply(lambda v: is_campus_match(v, "", campus_name))]
+            
+    if class_type and class_type not in ["Tất cả các lớp", "Tất cả", ""]:
+        cls_col = "class" if "class" in f_df.columns else ("class_name" if "class_name" in f_df.columns else "Class")
+        if cls_col in f_df.columns:
+            f_df = f_df[f_df[cls_col].apply(lambda v: is_class_match(v, class_type))]
+            
+    if school_year and school_year not in ["Tất cả năm học", "Tất cả", ""]:
+        y_col = "school_year" if "school_year" in f_df.columns else "School_Year"
+        if y_col in f_df.columns:
+            f_df = f_df[f_df[y_col].apply(lambda v: is_year_match(v, school_year))]
+            
+    if term_val and term_val not in ["Tất cả mốc thời gian", "Tất cả", ""]:
+        t_col = "term" if "term" in f_df.columns else "Term"
+        if t_col in f_df.columns:
+            f_df = f_df[f_df[t_col].apply(lambda v: is_term_match(v, term_val))]
+            
+    if teacher_name and teacher_name not in ["Tất cả giáo viên", "Tất cả", ""]:
+        t_col = "teacher" if "teacher" in f_df.columns else ("teacher_user" if "teacher_user" in f_df.columns else "Teacher")
+        if t_col in f_df.columns:
+            f_df = f_df[f_df[t_col].apply(lambda v: is_teacher_match(v, teacher_name, teacher_name))]
+            
+    if student_name and student_name not in ["Tất cả học sinh / Cả lớp", "Tất cả học sinh", "Tất cả", ""]:
+        s_col = "student" if "student" in f_df.columns else ("student_name" if "student_name" in f_df.columns else "Student")
+        if s_col in f_df.columns:
+            f_df = f_df[f_df[s_col].apply(lambda v: is_student_match(v, student_name))]
+            
+    d_col = "date" if "date" in f_df.columns else ("eval_date" if "eval_date" in f_df.columns else "Date")
+    if d_col in f_df.columns and time_mode and time_mode != "Tất cả mốc thời gian":
+        def parse_d(val):
+            try:
+                s = clean_date_str(val)
+                return datetime.strptime(s, "%d/%m/%Y")
+            except Exception:
+                return None
+        parsed_dates = f_df[d_col].apply(parse_d)
+        
+        if time_mode == "Theo Tháng" and sel_month:
+            f_df = f_df[parsed_dates.apply(lambda d: d.month == sel_month if d else False)]
+        elif time_mode == "Theo Quý" and sel_quarter:
+            f_df = f_df[parsed_dates.apply(lambda d: (d.month - 1) // 3 + 1 == sel_quarter if d else False)]
+        elif time_mode == "Khoảng ngày tự chọn" and start_date and end_date:
+            st_d = datetime.combine(start_date, datetime.min.time()) if hasattr(start_date, 'year') else start_date
+            et_d = datetime.combine(end_date, datetime.max.time()) if hasattr(end_date, 'year') else end_date
+            f_df = f_df[parsed_dates.apply(lambda d: st_d <= d <= et_d if d else False)]
+            
+    return f_df
+
+def synthesize_comparisons_report(daily_df, campus_name="Tất cả", class_type="Tất cả", school_year="Tất cả", teacher_name="Tất cả", student_name="Tất cả", period1_mode="Tháng 9", period2_mode="Tháng 10"):
+    if daily_df is None or daily_df.empty:
+        return pd.DataFrame()
+        
+    def parse_period_num(mode_str):
+        m = re.search(r'\d+', str(mode_str))
+        return int(m.group()) if m else None
+        
+    m1 = parse_period_num(period1_mode)
+    m2 = parse_period_num(period2_mode)
+    
+    logs_p1 = filter_records_multilevel(daily_df, campus_name=campus_name, class_type=class_type, school_year=school_year, teacher_name=teacher_name, student_name=student_name, time_mode="Theo Tháng", sel_month=m1)
+    logs_p2 = filter_records_multilevel(daily_df, campus_name=campus_name, class_type=class_type, school_year=school_year, teacher_name=teacher_name, student_name=student_name, time_mode="Theo Tháng", sel_month=m2)
+    
+    s_col = "student" if "student" in daily_df.columns else "Student"
+    t_col = "teacher" if "teacher" in daily_df.columns else "Teacher"
+    
+    students_p1 = set(logs_p1[s_col].dropna().unique()) if not logs_p1.empty and s_col in logs_p1.columns else set()
+    students_p2 = set(logs_p2[s_col].dropna().unique()) if not logs_p2.empty and s_col in logs_p2.columns else set()
+    all_stds = sorted(list(students_p1.union(students_p2)))
+    
+    if not all_stds:
+        return pd.DataFrame()
+        
+    comp_rows = []
+    for std in all_stds:
+        p1_std_logs = logs_p1[logs_p1[s_col].apply(clean_key) == clean_key(std)] if not logs_p1.empty and s_col in logs_p1.columns else pd.DataFrame()
+        p2_std_logs = logs_p2[logs_p2[s_col].apply(clean_key) == clean_key(std)] if not logs_p2.empty and s_col in logs_p2.columns else pd.DataFrame()
+        
+        t_name = p1_std_logs[t_col].iloc[0] if not p1_std_logs.empty and t_col in p1_std_logs.columns else (p2_std_logs[t_col].iloc[0] if not p2_std_logs.empty and t_col in p2_std_logs.columns else teacher_name)
+        
+        map1 = auto_map_daily_to_criteria(std, t_name, p1_std_logs) if not p1_std_logs.empty else None
+        map2 = auto_map_daily_to_criteria(std, t_name, p2_std_logs) if not p2_std_logs.empty else None
+        
+        score1 = round(sum([map1[f"TC{i}"] for i in range(1, 7)]) / 6.0, 2) if map1 else 2.5
+        score2 = round(sum([map2[f"TC{i}"] for i in range(1, 7)]) / 6.0, 2) if map2 else 2.5
+        
+        delta = round(score2 - score1, 2)
+        trend_tag = "TIẾN BỘ VƯỢT BẬC" if delta >= 0.5 else ("TIẾN BỘ TÍCH CỰC" if delta > 0 else ("DUY TRÌ PHONG ĐỘ" if delta == 0 else "CẦN LƯU Ý (THỤT LÙI)"))
+        
+        comp_rows.append({
+            "Tên học sinh": std,
+            "Giáo viên phụ trách": t_name,
+            "Đợt 1": period1_mode,
+            "Điểm Đợt 1": score1,
+            "Đợt 2": period2_mode,
+            "Điểm Đợt 2": score2,
+            "Biến thiên (Delta)": f"{delta:+.2f}",
+            "Xu hướng EQ": trend_tag
+        })
+        
+    return pd.DataFrame(comp_rows)
+
+def clean_key(val):
+    """ Xóa khoảng trắng, chữ thường, bỏ .0 và chuẩn hóa số 0 ở đầu SĐT/Mã """
+    if val is None or pd.isna(val):
+        return ""
+    s = str(val).strip().lower()
+    s = s.replace(".0", "")
+    if s in ["nan", "none"]:
+        return ""
+    if s.startswith("0") and len(s) > 1:
+        s = s[1:]
     return s
 
 def filter_df_by_clean_col(df, col_name, target_val):
@@ -2131,4 +2246,3 @@ else:
                     df_my_comp_export.to_csv(index=False).encode('utf-8-sig'),
                     f"Bang_Xu_Huong_EQ_Lop_{user_info['name']}_{datetime.today().strftime('%Y%m%d')}.csv", "text/csv"
                 )
-
