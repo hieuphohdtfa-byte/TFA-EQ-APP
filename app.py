@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 # -----------------------------------------------------------------------------
 # 🔗 KẾT NỐI VỚI GOOGLE SHEET QUA WEB APP URL
 # -----------------------------------------------------------------------------
-GAS_URL = "https://script.google.com/macros/s/AKfycbwYyCVKVPrIw80fR13LysE3yZz2OrZRhPlfeymEJ6j-g_GkEfWtnauvNzfKJnEQYWNeqA/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbyLmKWVgiMnLk94OL1bjAVROT0jl-JhplqFmm1jpvIJMqZnUfzJUirRQMfyJsjgX34cPQ/exec"
 
 # -----------------------------------------------------------------------------
 # 🛠️ HÀM HỖ TRỢ CHUẨN HÓA MÃ CHUỖI & TÌM KIẾM AN TOÀN TUYỆT ĐỐI
@@ -1897,9 +1897,20 @@ else:
                 group_clean = "DUY TRÌ" if peq >= 3.2 else ("CẦN CẢI THIỆN" if peq >= 2.0 else "HỖ TRỢ ĐẶC BIỆT")
                 
                 st.markdown("---")
-                context_input = st.text_area("Bối cảnh / Minh chứng điển hình:", value=st.session_state.get(f"ctx_{std_eval}", f"Dựa trên theo dõi tháng..."))
-                conclusion_input = st.text_area("Kết luận xu hướng phát triển:", value=st.session_state.get(f"cnc_{std_eval}", f"Bé {std_eval} thuộc nhóm {group_clean}..."))
-                plan_input = st.text_area("Kế hoạch tác động tiếp theo:", value=st.session_state.get(f"pln_{std_eval}", f"Tiếp tục hỗ trợ bé..."))
+                context_input = st.text_area("📌 Bối cảnh / Minh chứng điển hình (Tự động tổng hợp / Cô chỉnh sửa):", value=st.session_state.get(f"ctx_{std_eval}", f"Dựa trên theo dõi hằng ngày trong tháng của bé..."), height=100)
+                conclusion_input = st.text_area("📊 Kết luận xu hướng phát triển EQ:", value=st.session_state.get(f"cnc_{std_eval}", f"Bé {std_eval} thuộc nhóm {group_clean}."), height=80)
+                
+                # 💡 Phân biệt rõ ràng: Kế hoạch gợi ý tự động từ hệ thống vs Kế hoạch hỗ trợ do Giáo viên tự nhập
+                auto_suggest_plan = st.session_state.get(f"pln_{std_eval}", "Tiếp tục đồng hành và hỗ trợ bé phát triển kỹ năng cảm xúc xã hội.")
+                st.info(f"💡 **Kế hoạch gợi ý tự động từ hệ thống (Từ Nhật ký hằng ngày):**\n{auto_suggest_plan}")
+                
+                plan_input = st.text_area(
+                    "✍️ Kế hoạch tác động & hỗ trợ riêng của giáo viên (Cô trực tiếp nhập / điều chỉnh kế hoạch):", 
+                    value=st.session_state.get(f"teacher_plan_{eval_key}", auto_suggest_plan), 
+                    key=f"teacher_plan_input_{eval_key}",
+                    height=100,
+                    help="Giáo viên có thể giữ nguyên gợi ý từ hệ thống hoặc tự tay nhập / điều chỉnh kế hoạch hỗ trợ chi tiết riêng cho bé."
+                )
                 
                 col_save_btn, col_exp_btn = st.columns([1.5, 1.5])
                 
